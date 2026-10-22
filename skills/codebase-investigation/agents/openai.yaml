@@ -1,0 +1,4 @@
+interface:
+  display_name: "代码库定位与测试拆分"
+  short_description: "快速定位调用链、减少重复搜索，并规划适合并行的单元测试分工"
+  default_prompt: "使用 $codebase-investigation 高效定位现有代码并规划测试分工。"

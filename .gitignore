@@ -1,0 +1,16 @@
+# 本地私有配置文件 (严禁提交)
+.env
+.env.local
+.env.*.local
+
+# 系统与编辑器缓存
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# 编译与测试产物
+target/
+*.log
+.harness-dist/
