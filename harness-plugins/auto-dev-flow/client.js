@@ -244,11 +244,9 @@ window.__ModuleLoader__.load({
       const currentLocale = 'zh-CN'
       const selected = items.find(item => item.id === selectedId) || null
       const answeredQuestionSet = [...new Set([...(selected?.answeredQuestionIds || []), ...answeredQuestionIds])]
-      const knownQuestions = new Map((selected?.pendingOrcaQuestions || []).map(question => [question.id, question]))
-      for (const question of orcaState?.questions || []) {
-        if (!answeredQuestionSet.includes(question.id)) knownQuestions.set(question.id, question)
-      }
-      const pendingOrcaQuestions = [...knownQuestions.values()].filter(question => !answeredQuestionSet.includes(question.id))
+      const pendingOrcaQuestions = (orcaState?.runId
+        ? orcaState.questions || []
+        : selected?.pendingOrcaQuestions || []).filter(question => !answeredQuestionSet.includes(question.id))
       const workItemTypes = [...new Set(workItems.map(item => item.typeName).filter(Boolean))].sort((a, b) => a.localeCompare(b, currentLocale))
       const workItemStates = [...new Set(workItems.map(item => item.state?.name).filter(Boolean))].sort((a, b) => a.localeCompare(b, currentLocale))
       const filteredWorkItems = workItems.filter(item => {
@@ -368,10 +366,10 @@ window.__ModuleLoader__.load({
       }, [selected?.id, selected?.answeredQuestionIds, selected?.pendingOrcaQuestions, orcaState?.questions, answeredQuestionIds, dismissedQuestionIds, questionDialogId])
 
       React.useEffect(() => {
-        if (!selected?.id || !pendingOrcaQuestions.length) return
-        const savedIds = new Set((selected.pendingOrcaQuestions || []).map(question => question.id))
-        const added = pendingOrcaQuestions.filter(question => !savedIds.has(question.id))
-        if (added.length) updateItem(selected.id, { pendingOrcaQuestions: pendingOrcaQuestions })
+        if (!selected?.id || !orcaState?.runId || orcaStateError) return
+        if (JSON.stringify(selected.pendingOrcaQuestions || []) !== JSON.stringify(pendingOrcaQuestions)) {
+          updateItem(selected.id, { pendingOrcaQuestions })
+        }
       }, [selected?.id, selected?.pendingOrcaQuestions, orcaState?.questions, answeredQuestionIds])
 
       function save(next) {
