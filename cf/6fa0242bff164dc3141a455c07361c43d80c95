@@ -1,0 +1,16 @@
+README.md
+  h_67c4a0e1a64980 8-22,43,45,52,71,92,109-111
+install.sh
+  h_67c4a0e1a64980 3-5,13,19-23,26-28,37-38,41-42,44-51,53-54,56-70,72-76,78-85,87,91,93-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "cf6fa0242bff164dc3141a455c07361c43d80c95",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
