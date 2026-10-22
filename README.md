@@ -13,10 +13,10 @@
 curl -fsSL https://raw.githubusercontent.com/jianggw-stu/harness-ai-dev-starter/main/install.sh | bash
 ```
 
-> **脚本自动完成的事项**：
-> 1. 自动从 [GitHub Release (v1.0.0)](https://github.com/jianggw-stu/harness-ai-dev-starter/releases/tag/v1.0.0) 下载最新 Skills 资产包；
-> 2. 自动解压并安装全部核心 Skills 到您的本机 `~/.agents/skills/`；
-> 3. 在当前目录下生成 `.env.local` 配置文件模板。
+> **脚本自动完成的事项（双轨就绪）**：
+> 1. **AI 底层技能包**：自动从 [GitHub Release](https://github.com/jianggw-stu/harness-ai-dev-starter/releases) 下载并安装全部核心 Skills 到 `~/.agents/skills/`；
+> 2. **Harness 可视化操作台插件**：自动下载 `@local/auto-dev-flow` 插件并自动注册到本机的 `~/.dsh` 操作台中，**重启 Harness 即可直接在界面看到专属研发看板**！
+> 3. **本地环境模板**：在当前目录下生成 `.env.local` 配置文件模板。
 
 ---
 

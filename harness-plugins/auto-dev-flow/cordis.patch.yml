@@ -1,0 +1,5 @@
+- insert:
+    - id: auto-dev-flow
+      name: '@local/auto-dev-flow'
+      inject: [webServer]
+      config: {}
