@@ -5,6 +5,21 @@
 
 ---
 
+## ⚡ 一键极速安装（无需克隆仓库）
+
+您**完全不需要克隆整个 Git 代码仓库**，直接在终端中复制并运行以下命令，即可自动从 GitHub Release 下载最新的 Skills 资产包并完成环境初始化：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jianggw-stu/harness-ai-dev-starter/main/install.sh | bash
+```
+
+> **脚本自动完成的事项**：
+> 1. 自动从 [GitHub Release (v1.0.0)](https://github.com/jianggw-stu/harness-ai-dev-starter/releases/tag/v1.0.0) 下载最新 Skills 资产包；
+> 2. 自动解压并安装全部核心 Skills 到您的本机 `~/.agents/skills/`；
+> 3. 在当前目录下生成 `.env.local` 配置文件模板。
+
+---
+
 ## 📌 架构全景与端到端流图
 
 本项目包含完整的人机协同控制面、多 Agent 调度流水线以及专业技能库：
@@ -25,33 +40,16 @@
 
 ---
 
-## 🚀 5 分钟快速上手指南
+## 🛠️ 个性化配置替换（核心必读！）
 
-### 第一步：克隆仓库与一键安装
-
-在终端执行以下命令，脚本将自动检查系统环境并将配套的开源 Skills 挂载到您的本机环境：
-
-```bash
-git clone <您的仓库地址> harness-ai-dev-starter
-cd harness-ai-dev-starter
-./install.sh
-```
-
-安装脚本会自动将 `skills/` 目录下的核心技能软链接至您的 `~/.agents/skills/` 目录，随用随生效。
-
----
-
-### 第二步：个性化配置替换（核心必读！）
-
-安装程序已自动为您生成本地配置文件：`.env.local`。  
+运行完安装命令后，会在当前目录下生成本地配置文件：`.env.local`。  
 由于每个人的电脑环境、仓库路径及 Docker 配置各不相同，模板中所有以 **`xxx`** 标记的配置项需要替换为您本机的真实信息：
 
 ```bash
-# 使用您喜欢的编辑器打开配置文件
 vim .env.local
 ```
 
-#### 🛠️ 个性化 `xxx` 配置项速查表
+#### 📋 个性化 `xxx` 配置项速查表
 
 | 配置变量名 | 默认模板占位符 | 说明与如何获取本机真实配置 |
 | :--- | :--- | :--- |
@@ -70,7 +68,7 @@ vim .env.local
 
 ---
 
-### 第三步：拉起本地测试 Docker MySQL 容器
+## 🐳 拉起本地测试 Docker MySQL 容器
 
 为了让 AI 在完成代码后能够进行**真实业务表读写核验**，请确保本机已运行 Docker 容器：
 
@@ -88,22 +86,10 @@ mysql -h 127.0.0.1 -P 3307 -u root -proot -e "CREATE DATABASE IF NOT EXISTS my_t
 
 ---
 
-### 第四步：运行一键自检脚本
-
-配置完成后，运行自检脚本确认所有工具链和依赖已就绪：
-
-```bash
-./scripts/verify-env.sh
-```
-
-如果看到 `🎉 恭喜！本地核心环境核验通过`，即可进入下一步！
-
----
-
 ## 🎯 日常研发使用流程（使用者操作 SOP）
 
 1. **打开 Harness 驾驶舱**：
-   启动 `DeepSeek Harness` 桌面客户端，在界面中选择或输入待开发的需求（例如粘贴 PingCode 任务链接或文字描述）。
+   启动 `DeepSeek Harness` 桌面客户端，在界面中选择或输入待开发的需求（例如粘贴工单任务链接或文字描述）。
 2. **澄清需求与契约把关**：
    - AI 需求分析子 Agent（Codex Luna）会自动提取需求上下文；
    - 在 Harness 界面中会弹出 1~3 个业务疑义提问，您只需在输入框逐题答复；
@@ -118,27 +104,15 @@ mysql -h 127.0.0.1 -P 3307 -u root -proot -e "CREATE DATABASE IF NOT EXISTS my_t
 
 ---
 
-## 🧩 跨模块与多业务适配说明
-
-本套流程**不仅适用于特定模块，而是通用的微服务研发方法论**：
-
-- **代码与架构规范通用**：无论是在 UPMS 权限中心、报表中心、支付网关还是定时任务模块，代码探查、防过度工程和格式化规则完全通用。
-- **模块数据库适配**：当切换到其他微服务模块时，只需确保本机的 Docker MySQL 中存在该模块所需的业务库与表结构，并在配置文件中指定 `LOCAL_TEST_DB_NAME` 即可。
-
----
-
 ## ❓ 常见问题排查 (FAQ)
 
-### Q1: Maven 报离线依赖缺失（Cannot resolve dependencies）怎么办？
-- **原因**：流水线默认使用离线编译，防止随意拉取公网不可信包或污染环境。
-- **解决办法**：请检查 `MAVEN_SETTINGS` 和 `MAVEN_REPO` 是否指向了包含公司私有依赖的常用仓库路径；如有新加的公网依赖，先在主终端执行一次 `mvn dependency:go-offline` 拉取缓存后再运行流水线。
+### Q1: 运行 curl 安装命令提示连接超时？
+- **原因**：可能受限于网络环境对 `raw.githubusercontent.com` 的访问。
+- **解决办法**：您可以直接访问 [Releases 页面](https://github.com/jianggw-stu/harness-ai-dev-starter/releases/tag/v1.0.0)，下载 `skills.tar.gz` 手动解压至 `~/.agents/skills/` 即可。
 
 ### Q2: 验证阶段报告“数据库前后值不一致 / 测试失败”？
 - **原因**：流水线拥有硬核的质量护栏，绝不允许仅凭 Mock 数据通过。
 - **机制**：当 Docker 数据库中的写入值与预期断言不符时，系统会自动将失败证据打包，触发**红色定向返修回路**退回编码 Agent 重新修复，直到通过为止。
-
-### Q3: 如何自定义调用的 AI 大模型？
-- 在 `.env.local` 中可灵活配置 `MODEL_ANALYST`（分析模型）与 `MODEL_DEVELOPER`（编码模型）。推荐使用交叉模型配对（如分析采用 Codex/Luna，编码采用 Grok 或 Sonnet），跨模型互审能有效消除幻觉。
 
 ---
 
