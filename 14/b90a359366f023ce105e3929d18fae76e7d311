@@ -1,0 +1,24 @@
+harness-plugins/auto-dev-flow/index.js
+  h_67c4a0e1a64980 299
+publish.sh
+  h_67c4a0e1a64980 1-201
+skills/dev-lifecycle/SKILL.md
+  h_67c4a0e1a64980 20,62
+skills/dev-lifecycle/references/engineering-preflight.md
+  h_67c4a0e1a64980 38,42-43
+skills/dev-lifecycle/references/workflow-and-coordination.md
+  h_67c4a0e1a64980 21,45
+skills/dev-lifecycle/scripts/mvn-verified.sh
+  h_67c4a0e1a64980 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "14b90a359366f023ce105e3929d18fae76e7d311",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
