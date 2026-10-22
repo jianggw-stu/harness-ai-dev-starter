@@ -1,0 +1,20 @@
+skills/dev-lifecycle/SKILL.md
+  h_67c4a0e1a64980 2-3,10,38,85
+skills/dev-lifecycle/agents/openai.yaml
+  h_67c4a0e1a64980 4
+skills/dev-lifecycle/references/engineering-preflight.md
+  h_67c4a0e1a64980 29
+skills/dev-lifecycle/references/workflow-and-coordination.md
+  h_67c4a0e1a64980 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "84957488c198f516cd2d53e9850d86a8c4ad7161",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
