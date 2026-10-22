@@ -1,4 +1,4 @@
 interface:
   display_name: "Insuranceagent 开发全流程"
   short_description: "个人需求分析、开发、测试与验收工作流"
-  default_prompt: "使用 $insuranceagent-dev-lifecycle 按个人研发流程协作完成本任务。"
+  default_prompt: "使用 $project-dev-lifecycle 按个人研发流程协作完成本任务。"

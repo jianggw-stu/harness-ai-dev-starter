@@ -1,13 +1,13 @@
 ---
-name: insuranceagent-dev-lifecycle
-description: "在 insuranceagent 工作区按个人流程完成需求分析、方案规划、开发、测试验收和归档；需求分析由独立 Codex 子 Worker 执行，通过 Orca 编排并在 Harness 中澄清和确认需求。适用于多阶段研发或端到端编排；本 Skill 只定义研发方法，不定义保险或产品业务规则。"
+name: project-dev-lifecycle
+description: "在项目工程工作区按个人流程完成需求分析、方案规划、开发、测试验收和归档；需求分析由独立 Codex 子 Worker 执行，通过 Orca 编排并在 Harness 中澄清和确认需求。适用于多阶段研发或端到端编排；本 Skill 只定义研发方法，不定义产品业务规则。"
 ---
 
 # 个人研发全流程
 
 这是用户个人探索中的工作方法，不是团队规范。始终优先遵守系统要求、仓库 `AGENTS.md`、项目构建指南和用户当前指令。未经用户要求，不要把本 Skill 写入仓库或宣称为团队强制流程。
 
-本 Skill 只覆盖研发过程，不包含保险、安全检查报告、字段映射或其他产品业务规则。业务事实应从当前代码、Schema、脱敏真实样例和用户确认中建立；不要根据流程文档推断业务。用户要求查看业务历史时，才按需查阅独立的本地业务资料。
+本 Skill 只覆盖研发过程，不包含安全检查报告、字段映射或其他产品业务规则。业务事实应从当前代码、Schema、脱敏真实样例和用户确认中建立；不要根据流程文档推断业务。用户要求查看业务历史时，才按需查阅独立的本地业务资料。
 
 ## 范围与变更控制
 
@@ -35,7 +35,7 @@ description: "在 insuranceagent 工作区按个人流程完成需求分析、�
 
 ## 需求分析角色与 Harness 确认门
 
-- 用户发起保险业务 Bug 修复、需求开发，或提出“需求评审”“需求分析”“业务需求澄清”时，默认先派发独立 Codex 子 Worker 执行需求分析；coordinator 不得在编排对话中代做分析。通过 Harness 发起的流程使用 Orca `worker-start --agent codex --model gpt-6-luna --effort high`，不继承可能选择 Sol/Astra 的默认配置；派发后核对 `launch.effective`，模型不符时停止该 Worker 并报告。用户当轮明确指定其他 Agent 或模型时，遵从该指令。
+- 用户发起项目业务 Bug 修复、需求开发，或提出“需求评审”“需求分析”“业务需求澄清”时，默认先派发独立 Codex 子 Worker 执行需求分析；coordinator 不得在编排对话中代做分析。通过 Harness 发起的流程使用 Orca `worker-start --agent codex --model gpt-6-luna --effort high`，不继承可能选择 Sol/Astra 的默认配置；派发后核对 `launch.effective`，模型不符时停止该 Worker 并报告。用户当轮明确指定其他 Agent 或模型时，遵从该指令。
 - Harness coordinator 的首要动作只能是创建本工单对应的 Orca Run 和“需求分析” Task，并派发独立 Worker；Worker 实际启动且 Run/Task/Dispatch 归属核对通过前，不得自行读取或分析工单、浏览 PingCode、提出业务问题或给出需求结论。派发提示词不得同时要求 coordinator“先开始分析”又声明“不得分析”；工单快照是已传入的 PingCode 事实来源，不要求 Worker 再次认证或查询 PingCode。
 - Harness 显示确认门前，必须核验状态接口可用且读取的是当前 Run、需求分析 Task/Dispatch。Task 列表可能保留失败的旧尝试；优先选择与当前已派发 Worker 精确关联的分析 Task，并按该 Task/Dispatch 过滤问题和结论。空响应、非 JSON、404、缺少 Run/Task/Dispatch 或 Worker 均属于同步/编排故障，不能显示为“没有待确认问题”，也不能继续后续阶段。判断问题是否已答复时，只能依据同一 thread 的实际答复消息，不能把问题自身的 thread ID 当成已答复证据。普通聊天中的问句不是 Orca `ask`，不能假称已同步到 Harness；说明阻碍并停在确认门。
 - 唯一豁免：用户当轮明确表示“不需要需求分析”或“跳过需求分析”。仅说“跳过复现”“不需要复现”只豁免 Bug 复现，不豁免需求分析。
@@ -82,7 +82,7 @@ description: "在 insuranceagent 工作区按个人流程完成需求分析、�
 - 当前任务已有 Orca Run 时，必须继续使用并维护该 Run 的 coordinator、mailbox、task 和 gate 状态；新增或唤醒 Agent 要挂到同一个 Run，不能另起孤立编排、覆盖原 Run、重置状态或绕过任务派发。执行前先检查 `run-current`、`run-list` 和 worker 状态；发现未绑定、失联或归属不明时先恢复编排上下文，再继续派发。
 - 用户报告已清理目标工单历史或已开启新 Agent 时，聊天上下文中残留的 Run/Task/Dispatch ID 只能作为查询线索，不能证明 Orca 里仍有绑定。必须重新查询当前 Run、目标 Task 和 Dispatch；仅在运行时记录仍能确认关联时，才报告“仍绑定”。若清理后目标 Task/Dispatch 已不存在，不得从旧聊天记录恢复或重派失败任务；按当前 Orca 状态和用户本轮指令继续，并如实说明保留或新建的 Run。
 - 需求分析派发后，核对 Orca 回执中的实际 Agent、模型和 `launch.effective`，并读取 Worker 收到的任务文本或首个可观察输出，确认 `$grill-me` / `$answer-me-with-html` 指令和范围约束未被 shell 展开破坏。业务问题须在 Harness 可见；确认用户答复已逐条经 Orca `reply` 回到对应问题后，才允许 Worker 形成最终结论。每个改变用户可见行为、触发时机、人工内容覆盖/保留或外部副作用的选择都必须取得用户答复，不能用“待技术分析”替代业务选择。随后核验 `worker_done` 身份及结论、HTML 路径可访问，并在 Harness 展示结论和页面；用户明确点击“确认需求并继续”后，才允许 coordinator 派发下一阶段。若 HTML Skill 或 Harness 集成不可用，说明阻碍并停在需求确认门，不得让 coordinator 代写或自动推进。构造包含 `$skill-name` 的 shell 参数时，避免 shell 变量展开并核对最终传入文本。
-- 用户只调用 `$insuranceagent-dev-lifecycle` 时，也应按上述条件自动加载并遵循 `$orchestration`；不要求用户每次重复点名编排 Skill。若该 Skill 或 Orca runtime 在当前会话不可用，明确说明限制，不要假称已启动 Worker。
+- 用户只调用 `$project-dev-lifecycle` 时，也应按上述条件自动加载并遵循 `$orchestration`；不要求用户每次重复点名编排 Skill。若该 Skill 或 Orca runtime 在当前会话不可用，明确说明限制，不要假称已启动 Worker。
 - 纯分析或简单小改动不强制创建多 Agent DAG；但 Bug 修复仍须派发一个独立 Worker，避免 coordinator 一人包办诊断和实现。纯分析也由专门子 Agent 执行；Harness 流程的问题与结论仍通过 Harness 展示并等待用户确认。
 - 执行 Orca 命令前，遵循 `$orchestration` 的要求，先读取当前 Orca binary 对应的编排指南。只有管理 worktree、终端、artifact 或执行完整 ownership handoff 时，再按需使用 `$orca-cli`；不要把 `$orca-cli` 当成多 Agent 协调器。
 - 常见角色分工默认是独立 Codex 子 Worker 负责业务需求分析，Grok（`grok-4.7`，推理强度 medium）负责实现，之后由 Codex `gpt-6-luna` 做独立验证和聚焦测试；Codex Luna（包括 high 推理强度）实现时由 Grok 验证。只允许 Grok/Luna 配对，不用 Sol/Astra，且实际模型与配对不符时不能计为验证通过。Harness 展示 QA 结果并等待用户对失败作决定；验证 Worker 可以补充测试代码，但不改生产实现。用户当轮指定优先。
