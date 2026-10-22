@@ -1,0 +1,18 @@
+harness-plugins/auto-dev-flow/client.js
+  h_67c4a0e1a64980 247-249,369-372
+skills/dev-lifecycle/references/agent-runtime-adapters.md
+  h_67c4a0e1a64980 20-22
+skills/dev-lifecycle/references/engineering-preflight.md
+  h_67c4a0e1a64980 23,31-33
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "703f6bc815910a245c850e6ce8c2eecf7b4a3de2",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
