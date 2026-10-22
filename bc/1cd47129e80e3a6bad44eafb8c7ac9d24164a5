@@ -1,0 +1,30 @@
+README.md
+  h_67c4a0e1a64980 16-19
+harness-plugins/auto-dev-flow/client.js
+  h_67c4a0e1a64980 1-1128
+harness-plugins/auto-dev-flow/cordis.patch.yml
+  h_67c4a0e1a64980 1-5
+harness-plugins/auto-dev-flow/icon.svg
+  h_67c4a0e1a64980 1-5
+harness-plugins/auto-dev-flow/index.js
+  h_67c4a0e1a64980 1-582
+harness-plugins/auto-dev-flow/locale/en.json
+  h_67c4a0e1a64980 1-6
+harness-plugins/auto-dev-flow/locale/zh.json
+  h_67c4a0e1a64980 1-6
+harness-plugins/auto-dev-flow/package.json
+  h_67c4a0e1a64980 1-45
+install.sh
+  h_67c4a0e1a64980 4,17,24,26,28-30,33,36,43-44,49,60,68,73-129,131,145,147-148,150-151
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "bc1cd47129e80e3a6bad44eafb8c7ac9d24164a5",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
