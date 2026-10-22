@@ -1,0 +1,60 @@
+.gitignore
+  h_67c4a0e1a64980 1-16
+README.md
+  h_67c4a0e1a64980 1-147
+config/env.example
+  h_67c4a0e1a64980 1-62
+install.sh
+  h_67c4a0e1a64980 1-74
+scripts/verify-env.sh
+  h_67c4a0e1a64980 1-94
+skills/answer-me-with-html/SKILL.md
+  h_67c4a0e1a64980 1-178
+skills/answer-me-with-html/references/settings.md
+  h_67c4a0e1a64980 1-15
+skills/answer-me-with-html/references/video.md
+  h_67c4a0e1a64980 1-36
+skills/answer-me-with-html/scripts/am.mjs
+  h_67c4a0e1a64980 1-8220
+skills/caveman/README.md
+  h_67c4a0e1a64980 1-68
+skills/caveman/SKILL.md
+  h_67c4a0e1a64980 1-88
+skills/codebase-investigation/SKILL.md
+  h_67c4a0e1a64980 1-29
+skills/codebase-investigation/agents/openai.yaml
+  h_67c4a0e1a64980 1-4
+skills/dev-lifecycle/SKILL.md
+  h_67c4a0e1a64980 1-115
+skills/dev-lifecycle/agents/openai.yaml
+  h_67c4a0e1a64980 1-4
+skills/dev-lifecycle/references/acceptance-and-cleanup.md
+  h_67c4a0e1a64980 1-39
+skills/dev-lifecycle/references/agent-runtime-adapters.md
+  h_67c4a0e1a64980 1-36
+skills/dev-lifecycle/references/artifacts-and-memory.md
+  h_67c4a0e1a64980 1-31
+skills/dev-lifecycle/references/engineering-preflight.md
+  h_67c4a0e1a64980 1-44
+skills/dev-lifecycle/references/workflow-and-coordination.md
+  h_67c4a0e1a64980 1-74
+skills/grill-me/SKILL.md
+  h_67c4a0e1a64980 1-12
+skills/orca-cli/SKILL.md
+  h_67c4a0e1a64980 1-47
+skills/orchestration/SKILL.md
+  h_67c4a0e1a64980 1-66
+skills/ponytail/SKILL.md
+  h_67c4a0e1a64980 1-5
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c71d9407672b2b8f3813510b044c2809fd3d18f8",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
