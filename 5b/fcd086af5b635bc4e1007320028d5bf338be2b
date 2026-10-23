@@ -1,0 +1,52 @@
+harness-plugins/auto-dev-flow/client.js
+  s_4ddd9938dae7fa::t_37a7abdbf2bc2b 113,145
+  s_4ddd9938dae7fa::t_a9fb02a07494e4 722-727,739-741,743-744
+  s_4ddd9938dae7fa::t_077ed52844d22e 323-324,327-328,344-348,362-366,368-372,374,377-402,413-415,417,420,424,471,477,493,765
+  s_4ddd9938dae7fa::t_ee3faa2e90b857 747
+  s_4ddd9938dae7fa::t_8924cfe1408d9c 697,700-703
+  s_4ddd9938dae7fa::t_ae59d8f99b3b07 1031-1032
+  s_4ddd9938dae7fa::t_81d6627200950a 715,737-738
+  s_4ddd9938dae7fa::t_e057e19f6e6b50 128-132
+  s_4ddd9938dae7fa::t_193101fc8beedb 494
+  s_4ddd9938dae7fa::t_af923fb9d8a066 721
+  s_4ddd9938dae7fa::t_c719225b856564 728-730
+  s_4ddd9938dae7fa::t_ead40f2d0b71b9 736
+  s_4ddd9938dae7fa::t_fed612de4d8c4d 745
+  s_4ddd9938dae7fa::t_7de4725d4ed3a4 766-768
+harness-plugins/auto-dev-flow/index.js
+  s_4ddd9938dae7fa::t_1dd70eb02c160b 285
+  s_4ddd9938dae7fa::t_4e8358804e0a4f 284,286-287,357
+  s_4ddd9938dae7fa::t_e8a5a45a4029e9 142-164,177,180-182,184-188,191,202-203,205,209-210,218,227-229
+  s_4ddd9938dae7fa::t_725d1e589f8898 288-326
+  s_4ddd9938dae7fa::t_d69fc7b91ef539 494,499,501,539,597
+  s_4ddd9938dae7fa::t_1ea329975ff554 500
+  s_4ddd9938dae7fa::t_e1e65f617cdcd8 230-231
+  s_4ddd9938dae7fa::t_de5f50218898ab 327-329
+  s_4ddd9938dae7fa::t_added7bd865d56 354-356
+  s_4ddd9938dae7fa::t_be265d6fec8dc4 358-360
+  s_4ddd9938dae7fa::t_60fbd6d6bf77a1 502
+  s_4ddd9938dae7fa::t_5b982b2e0c50fe 536-538
+  s_4ddd9938dae7fa::t_247fab7aa75153 540
+  s_4ddd9938dae7fa::t_05a7a2b8d271ea 594-596
+  s_4ddd9938dae7fa::t_63168f8e7f541b 598-600
+skills/dev-lifecycle/references/agent-runtime-adapters.md
+  s_4ddd9938dae7fa::t_b6a99d9bbbd8ae 3,20-21
+skills/dev-lifecycle/references/workflow-and-coordination.md
+  s_4ddd9938dae7fa::t_9f6e5d55fc8665 20,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5bfcd086af5b635bc4e1007320028d5bf338be2b",
+  "prompts": {},
+  "sessions": {
+    "s_4ddd9938dae7fa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1626a-4279-7f60-b986-ac5b98282444",
+        "model": "gpt-6-sol"
+      },
+      "human_author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
