@@ -58,7 +58,7 @@ vim .env.local
 | `MAVEN_SETTINGS`| `/xxx/path/to/.../settings.xml` | 您的 Maven 配置文件路径，确保配置了公司私服或阿里云镜像。 |
 | `MAVEN_REPO` | `/xxx/path/to/maven-work` | 您的本地 Maven 缓存仓库目录，建议与 IntelliJ IDEA 中的设置保持一致。 |
 | `LOCAL_TEST_DB_CONTAINER` | `xxx-mysql` | 本机 Docker MySQL 测试容器名（用于 AI 自动连接跑真实落地测试）。 |
-| `LOCAL_TEST_DB_PORT` | `xxx` | 本机 MySQL 映射的主机端口（如 `3306` 或 `3307`）。 |
+| `LOCAL_TEST_DB_PORT` | `xxx` | 本机 MySQL 映射的主机端口（如 `3306` 或 `3306`）。 |
 | `LOCAL_TEST_DB_NAME` | `xxx_test_db` | 测试数据库名称（根据当前开发模块的业务表创建）。 |
 | `LOCAL_TEST_DB_PWD` | `xxx_password` | 本机测试 MySQL 数据库的 root 密码。 |
 | `GITLAB_HOST` | `xxx.gitlab.com` | 团队自建 GitLab 域名。 |
@@ -73,15 +73,15 @@ vim .env.local
 为了让 AI 在完成代码后能够进行**真实业务表读写核验**，请确保本机已运行 Docker 容器：
 
 ```bash
-# 启动一个本地 MySQL 测试容器（以 3307 端口为例）
+# 启动一个本地 MySQL 测试容器（以 3306 端口为例）
 docker run -d \
   --name local-test-mysql \
-  -p 3307:3306 \
+  -p 3306:3306 \
   -e MYSQL_ROOT_PASSWORD=root \
   mysql:5.7
 
 # 进入容器创建您的测试库，并导入初始 DDL/表结构
-mysql -h 127.0.0.1 -P 3307 -u root -proot -e "CREATE DATABASE IF NOT EXISTS my_test_db DEFAULT CHARSET utf8mb4;"
+mysql -h 127.0.0.1 -P 3306 -u root -proot -e "CREATE DATABASE IF NOT EXISTS my_test_db DEFAULT CHARSET utf8mb4;"
 ```
 
 ---

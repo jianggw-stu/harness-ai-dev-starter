@@ -1,6 +1,6 @@
 # 可选 Agent Runtime 适配
 
-只有任务明确使用多 Agent Runtime 时才阅读。本文件不规定 ORCA、A2A 等 Runtime 的技术选型；默认由独立 Codex 子 Worker 做需求分析，代码编写使用 `grok-4.7`（推理强度 medium），独立验证默认使用 Codex `gpt-6-luna`。用户本轮更具体指示优先。
+只有任务明确使用多 Agent Runtime 时才阅读。本文件不规定 ORCA、A2A 等 Runtime 的技术选型；默认由独立 Codex 子 Worker 做需求分析，开发与独立验证交叉使用 Grok `grok-4.7` medium 和 Codex `gpt-6-luna` high。缺少可复用终端时由 coordinator 自动在当前 worktree 启动对应 Agent。用户本轮更具体指示优先。
 
 ## 与 Runtime 无关的边界
 
@@ -17,8 +17,8 @@
 
 - **Codex 子 Worker 只做业务需求分析。** 它只读取用户提供的需求/业务资料，只输出业务目标、角色、流程、业务规则、用户可见行为、验收标准和待确认问题；不得查代码、数据库/Schema、接口、架构、配置或技术资料，不得给技术方案或修改代码。技术未知项只列为待技术分析。
 - Harness 流程中，需求 Worker 使用 Orca 阻塞式 `ask` 将业务问题送入当前 Run 的 coordinator mailbox；Harness 读取并显示待确认问题，用户逐题答复后由 Harness 通过 `orca orchestration reply` 回传给原问题。coordinator 不改写、不代答。Worker 收齐答复后回传 `worker_done` 和评审页；Harness 展示结论并等待用户明确点击“确认需求并继续”，收到确认前不得启动下一阶段。
-- **技术内容由 Codex 或 Grok 负责。** 实现默认 Grok `grok-4.7`，之后由 Codex `gpt-6-luna` 独立验证并执行聚焦测试；若实现使用 Codex Luna（包括 high 推理强度），则由 Grok 验证。只允许 Grok/Luna 配对，不使用 Sol/Astra。
-- **模型必须在创建 Dispatch 前锁定。** Codex 派发显式传 `--model gpt-6-luna --effort <level>`，并核对回执中的 `launch.effective`。Orca CLI 的 `worker-start --model` 不支持 Grok；Grok 使用 Agent 自身配置。派发 Grok 前先从 Orca 终端清单选出当前项目、当前 worktree 下空闲且界面明确显示 `Grok 4.7 (medium)` 的终端，并通过 `worker-start --terminal <handle> --worktree <exact-worktree-id>` 投递任务。不得用 `--agent grok` 新建终端后再发现它实际是 4.6；也不得把任务文本里的“必须 4.7”当成模型锁。找不到已核实的 4.7 终端时，不创建 Task/Dispatch，先在 Harness 报告模型配置阻断；不得降级运行。复用终端时先核验模型、工作区和空闲状态，启动后再核验 Dispatch 回执。
+- **技术内容由 Codex 或 Grok 负责并交叉验证。** 默认 Grok `grok-4.7` medium 开发、Codex `gpt-6-luna` high 验证；若 Codex 开发，则由 Grok 验证。当前 Run/worktree 没有匹配且空闲的终端时，coordinator 必须自动在精确 worktree 启动对应 Agent 并挂入 Dispatch，不得要求用户提供终端。Codex 由 `worker-start --agent codex --model gpt-6-luna --effort high` 启动；Grok 由 `agent launch --agent grok --surface terminal --worktree path:<worktree>` 启动，核验实际模型/effort 后再用 `worker-start --terminal <handle> --worktree <exact-worktree-id>` 纳入 Run。若启动失败或 Grok 回退到 4.6，通过当前 Run 的 ask 将真实阻碍和可选处理方式同步到 Harness，不静默降级。
+- **模型必须在 Dispatch 生效前核验。** Orca `worker-start --model` 不支持 Grok。先复用当前 Run/worktree 中同角色、空闲且模型匹配的终端；没有时由 coordinator 自动启动：Codex 使用 `worker-start --agent codex --model gpt-6-luna --effort high`，Grok 使用 `agent launch --agent grok --surface terminal --worktree path:<worktree>`，读取新终端实际模型和 effort 后，再用 `worker-start --terminal <handle> --worktree <exact-worktree-id>` 创建受管 Dispatch。禁止借用别的任务或主工作区会话。若新 Grok 实际为 4.6、模型不可用或启动失败，不创建错误模型的 Dispatch；通过当前 Run 的 ask 同步 Harness 并等待用户决策，不能要求用户手动启动终端。每次启动后核对实际 Agent、模型、effort 和 `launch.effective`。
 - **优先复用同角色的 Orca 终端。** 派发前查看终端清单并读取候选近期输出，确认 Agent 身份、模型、精确 worktree 和空闲状态。Orca `worker-start` 默认新建终端；需要复用时必须显式使用 `--terminal <handle> --worktree <exact-worktree-id>`，只写 `--agent codex` 会创建新终端。QA 与 QA 定向重试属于同一验证角色，必须复用同一个空闲 Codex 验证终端；同一个 QA Dispatch 应一次运行本轮全部聚焦用例，不按用例数量创建多个 Codex。返修仍复用原实现 Worker。不得把开发 Worker 同时用作独立 QA，也不得把仍在运行的终端当作空闲。只有候选终端不存在、Agent/模型不匹配、终端仍忙或确需隔离工作区时，才新建并在 Harness 记录具体原因。`--terminal` 不能与 `--model`/`--effort` 同用，因此复用前必须从终端状态确认实际模型。
 - **角色/模型名不是可执行命令。** 通过 Orca 派发需求 Worker 时使用 `worker-start --agent codex --model gpt-6-luna --effort high`；派发后核对实际 Agent、模型与 `launch.effective`，不符时停止并报告。若用户指定其他 Agent/模型，先按其要求核对可用性。
 - 新建角色终端时，只启动当前获授权阶段所需的 Agent。Codex 需求分析应只读业务资料，不得编辑仓库。全权限运行配置只适用于用户明确授权的实现工作，不能扩大任务授权范围。

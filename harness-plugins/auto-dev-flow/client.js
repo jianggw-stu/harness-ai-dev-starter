@@ -4,7 +4,7 @@ window.__ModuleLoader__.load({
     const React = require('react')
     const h = React.createElement
     const storageKey = 'auto-dev-flow:v1'
-    const stages = ['intake', 'requirements', 'reproduction', 'reproSkipped', 'implementation', 'tests', 'mrPreparation', 'mrReview', 'acceptance', 'archive']
+    const stages = ['intake', 'requirements', 'reproduction', 'reproSkipped', 'implementation', 'tests', 'mrPreparation', 'mrReview', 'mrReviewed', 'acceptance', 'archive']
     const zh = {
       nav: '自动化开发',
       pageTitle: '自动化开发', subtitle: '从 PingCode 待办进入需求确认、开发测试和 GitLab 评审',
@@ -18,7 +18,7 @@ window.__ModuleLoader__.load({
       analysisWorker: '需求分析子 Worker', waitingAnalysis: '等待 Orca 创建需求分析 Worker…', noQuestions: '目前没有待确认的问题。',
       coordinatorMissing: '尚未找到此 worktree 的 Orca coordinator；待确认问题暂时无法同步。', runMissing: 'coordinator 尚未创建本工单的 Orca Run；待确认问题暂时无法同步。',
       analysisTaskMissing: 'Orca Run 已创建，但尚未创建需求分析 Task。', workerMissing: '需求分析 Task 已创建，等待 Codex 子 Worker 启动。',
-      pendingQuestions: '待确认问题', answerPlaceholder: '在 Harness 中回答这个业务问题…', sendAnswer: '提交答复', sendingAnswer: '提交中…',
+      pendingQuestions: '待确认问题', answerPlaceholder: '填写你的决定或补充说明…', sendAnswer: '提交答复', sendingAnswer: '提交中…',
       requirementsReview: '需求评审结论', waitingReview: '等待需求分析 Worker 完成并回传结论…', confirmRequirements: '确认需求并继续',
       requirementsConfirmed: '已在 Harness 确认需求，已通知 Orca coordinator。',
       selectRepo: '请先选择 Orca Git 仓库。', noSelection: '请先选择 PingCode 工作项。', starting: '正在创建 worktree 并启动 Agent…',
@@ -26,7 +26,7 @@ window.__ModuleLoader__.load({
       selectHint: '选择一条开发流程查看详情。', bugId: 'PingCode 编号', workTitle: '标题', repository: '仓库',
       typeName: '类型', stateName: '状态', branch: '开发分支',
       pingcodeUrl: 'PingCode 链接', gitlabMrUrl: 'GitLab MR 链接', currentStage: '当前阶段', status: '状态', updated: '最后更新',
-      storageError: '本机保存失败，本次修改可能不会保留。', active: '进行中', paused: '已暂停', completed: '已完成',
+      storageError: '本机保存失败，本次修改可能不会保留。', active: '进行中', paused: '已暂停', completed: '本轮已结束', reviewed: '评审已完成', waiting: '待确认',
       runId: 'Harness / Orca Run ID', taskId: 'Orca Task ID', dispatchId: 'Orca Dispatch ID', worktree: '工作区 / Worktree',
       agent: 'Agent', agentRole: 'Agent 职责', pause: '暂停', resume: '恢复', openMr: '打开 GitLab MR',
       cleanup: '删除编排、worktree 和分支', cleanupConfirm: bugId => `将删除 ${bugId} 对应的 Orca 编排记录、专属 worktree 目录和本地 Git 分支；worktree 内未提交内容也会删除。仅执行能确认属于该工单的目标，是否继续？`, cleanupStarted: '已启动定向清理 Agent',
@@ -34,7 +34,7 @@ window.__ModuleLoader__.load({
       notes: '时间线备注', noNotes: '还没有备注。', notePlaceholder: '记录进展或交接信息…', addNote: '添加备注', runtimeInfo: '运行信息',
       createdNote: '已交给 Agent', pausedNote: '已暂停流程', resumedNote: '已恢复流程', stageChanged: '阶段变更',
       stage_intake: '需求接收', stage_requirements: '需求确认', stage_reproduction: '复现', stage_reproSkipped: '跳过复现',
-      stage_implementation: '开发实现', stage_tests: '测试', stage_mrPreparation: '提交 MR', stage_mrReview: 'MR 评审', stage_acceptance: '验收', stage_archive: '归档'
+      stage_implementation: '开发实现', stage_tests: '测试', stage_mrPreparation: '提交 MR', stage_mrReview: 'MR 评审', stage_mrReviewed: '评审完成', stage_acceptance: '验收', stage_archive: '归档'
     }
     const cssText = `
       .adf { height:100%; overflow:auto; padding:24px clamp(16px,2.5vw,36px); color:var(--dsw-alias-label-primary); }
@@ -110,7 +110,7 @@ window.__ModuleLoader__.load({
       .adf__textarea { min-height:66px; resize:vertical; }
       .adf__actions { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
       .adf__notes { margin-top:16px; border-top:1px solid var(--dsw-alias-border-l1); padding-top:12px; }
-      .adf__question { margin:8px 0; padding:10px; border:1px solid var(--dsw-alias-border-l1); border-radius:8px; background:var(--dsw-alias-bg-layer-2); }
+      .adf__question { margin:8px 0; padding:12px; border:1px solid var(--dsw-alias-border-l1); border-radius:8px; background:var(--dsw-alias-bg-layer-2); }
       .adf__question-title { margin:0 0 7px; font-size:12px; font-weight:600; }
       .adf__review-body { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
       .adf__review-frame { display:block; width:100%; min-height:700px; margin:10px 0; border:1px solid var(--dsw-alias-border-l1); border-radius:8px; background:#fff; }
@@ -125,6 +125,11 @@ window.__ModuleLoader__.load({
       .adf__note-compose { display:flex; gap:7px; margin-top:9px; }
       .adf__note-compose .adf__textarea { flex:1; min-width:0; min-height:38px; }
       .adf__note-compose .adf__button { flex:0 0 auto; white-space:nowrap; }
+      .adf__orca-compose { padding:10px; border:1px solid var(--dsw-alias-border-l1); border-radius:9px; background:var(--dsw-alias-bg-layer-2); }
+      .adf__orca-compose .adf__textarea { min-height:78px; border-color:transparent; background:var(--dsw-alias-bg-base); line-height:1.5; }
+      .adf__orca-compose .adf__textarea:focus-visible { border-color:var(--dsw-alias-brand-primary); }
+      .adf__orca-compose-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:7px; margin-top:9px; }
+      .adf__orca-compose-actions .adf__button--danger { border-color:color-mix(in srgb,var(--dsw-alias-state-error-primary) 30%,var(--dsw-alias-border-l1)); }
       .adf__form { padding:14px; margin-bottom:16px; border:1px solid var(--dsw-alias-border-l1); border-radius:11px; background:var(--dsw-alias-bg-layer-1); }
       .adf__form h2 { margin:0 0 12px; font-size:15px; }
       .adf__form-actions { display:flex; gap:8px; margin-top:12px; }
@@ -137,8 +142,7 @@ window.__ModuleLoader__.load({
       .adf__modal-body { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding:18px; }
       .adf__modal-value { overflow-wrap:anywhere; white-space:pre-wrap; font-size:13px; }
       .adf__modal-description { grid-column:1/-1; }
-      .adf__question-modal { width:min(560px,100%); max-height:min(76vh,720px); }
-      .adf__question-options { display:grid; gap:7px; margin:12px 0; }
+      .adf__question-options { display:flex; flex-wrap:wrap; gap:7px; margin:12px 0; }
       .adf__question-options .adf__button { text-align:left; }
       .adf__description-image { display:block; max-width:100%; max-height:60vh; object-fit:contain; margin-top:12px; border:1px solid var(--dsw-alias-border-l1); border-radius:8px; }
       .adf__description-image-link { display:block; margin-top:8px; color:var(--dsw-alias-link); }
@@ -223,7 +227,6 @@ window.__ModuleLoader__.load({
       const [progressSaving, setProgressSaving] = React.useState(false)
       const [continueDraft, setContinueDraft] = React.useState('')
       const [continuing, setContinuing] = React.useState(false)
-      const [interruptReason, setInterruptReason] = React.useState('')
       const [interruptingDispatchId, setInterruptingDispatchId] = React.useState('')
       const [orcaState, setOrcaState] = React.useState(null)
       const [orcaStateError, setOrcaStateError] = React.useState('')
@@ -233,8 +236,6 @@ window.__ModuleLoader__.load({
       const [answerDrafts, setAnswerDrafts] = React.useState({})
       const [answeredQuestionIds, setAnsweredQuestionIds] = React.useState([])
       const [answeringQuestionId, setAnsweringQuestionId] = React.useState('')
-      const [questionDialogId, setQuestionDialogId] = React.useState('')
-      const [dismissedQuestionIds, setDismissedQuestionIds] = React.useState([])
       const [confirmingRequirements, setConfirmingRequirements] = React.useState(false)
       const [submittingReview, setSubmittingReview] = React.useState(false)
       const [noteDraft, setNoteDraft] = React.useState('')
@@ -243,6 +244,8 @@ window.__ModuleLoader__.load({
       const t = key => zh[key] || key
       const currentLocale = 'zh-CN'
       const selected = items.find(item => item.id === selectedId) || null
+      const itemsRef = React.useRef(items)
+      itemsRef.current = items
       const answeredQuestionSet = [...new Set([...(selected?.answeredQuestionIds || []), ...answeredQuestionIds])]
       const pendingOrcaQuestions = (orcaState?.runId
         ? orcaState.questions || []
@@ -317,8 +320,12 @@ window.__ModuleLoader__.load({
       React.useEffect(() => {
         let current = true
         let timer
+        let refreshing = false
+        let refreshAgain = false
         async function refresh(manual = false) {
           if (!selected?.worktree) { setOrcaState(null); return }
+          if (refreshing) { refreshAgain ||= manual; return }
+          refreshing = true
           if (manual) setOrcaRefreshing(true)
           try {
             const query = new URLSearchParams({
@@ -334,15 +341,17 @@ window.__ModuleLoader__.load({
             if (!response.ok || !result.ok) throw new Error(result.error || `${response.status}`)
             if (current) { setOrcaState(result.state); setOrcaStateError(''); setOrcaLastRefreshedAt(new Date().toISOString()) }
           } catch (cause) { if (current) { setOrcaStateError(cause?.message || String(cause)); setOrcaLastRefreshedAt(new Date().toISOString()) } }
-          finally { if (current && manual) setOrcaRefreshing(false) }
+          finally {
+            refreshing = false
+            if (current && manual) setOrcaRefreshing(false)
+            if (current && refreshAgain) { refreshAgain = false; refresh(true) }
+          }
         }
         setOrcaState(null)
         setOrcaStateError('')
         setOrcaLastRefreshedAt('')
         setOrcaRefreshing(false)
         setAnsweredQuestionIds([])
-        setQuestionDialogId('')
-        setDismissedQuestionIds([])
         orcaRefreshRef.current = refresh
         if (selected?.worktree) { refresh(); timer = setInterval(refresh, 8000) }
         return () => { current = false; if (orcaRefreshRef.current === refresh) orcaRefreshRef.current = null; if (timer) clearInterval(timer) }
@@ -350,20 +359,47 @@ window.__ModuleLoader__.load({
 
       React.useEffect(() => {
         if (!selected?.id || !orcaState) return
-        const stage = selected.requirementsConfirmedAt && orcaState.stage === 'requirements' ? selected.stage : orcaState.stage
+        syncFlowState(selected, orcaState)
+      }, [selected?.id, selected?.stage, selected?.status, selected?.gitlabMrUrl, orcaState?.stage, orcaState?.flowStatus, orcaState?.gitlabMrUrl])
+
+      function syncFlowState(item, state) {
+        const stage = item.requirementsConfirmedAt && state.stage === 'requirements' ? item.stage : state.stage
         const patch = {}
-        if (stage && selected.stage !== stage) patch.stage = stage
-        if (orcaState.gitlabMrUrl && selected.gitlabMrUrl !== orcaState.gitlabMrUrl) patch.gitlabMrUrl = orcaState.gitlabMrUrl
-        if (Object.keys(patch).length) updateItem(selected.id, patch,
+        if (stage && item.stage !== stage) patch.stage = stage
+        if (state.flowStatus && item.status !== state.flowStatus) patch.status = state.flowStatus
+        if (state.gitlabMrUrl && item.gitlabMrUrl !== state.gitlabMrUrl) patch.gitlabMrUrl = state.gitlabMrUrl
+        if (item.syncError) patch.syncError = ''
+        if (Object.keys(patch).length) updateItem(item.id, patch,
           patch.gitlabMrUrl ? 'GitLab MR 已关联到当前流程' : `${t('stageChanged')}: ${stageLabel(stage)}（从 Orca 同步）`)
-      }, [selected?.id, selected?.stage, selected?.gitlabMrUrl, orcaState?.stage, orcaState?.gitlabMrUrl])
+      }
 
       React.useEffect(() => {
-        const question = pendingOrcaQuestions.find(item =>
-          !answeredQuestionSet.includes(item.id) && !dismissedQuestionIds.includes(item.id))
-        if (question && selected?.id) setQuestionDialogId(question.id)
-        else if (!pendingOrcaQuestions.some(item => item.id === questionDialogId)) setQuestionDialogId('')
-      }, [selected?.id, selected?.answeredQuestionIds, selected?.pendingOrcaQuestions, orcaState?.questions, answeredQuestionIds, dismissedQuestionIds, questionDialogId])
+        let current = true
+        let busy = false
+        async function refreshList() {
+          if (busy) return
+          busy = true
+          try {
+            for (const item of itemsRef.current.filter(item => item.id !== selectedId && item.worktree
+              && !item.paused && item.status !== 'completed' && !cleanupAlreadyRequested(item))) {
+              if (!current) break
+              try {
+                const query = new URLSearchParams({bugId:item.bugId,repoId:repoIdFor(item),worktree:item.worktree,
+                  runId:item.runId || '',coordinatorTerminal:item.coordinatorTerminal || ''})
+                const response = await fetch(`/auto-dev-flow/orca/state?${query}`)
+                const result = await response.json()
+                if (!response.ok || !result.ok) throw new Error(result.error || `${response.status}`)
+                if (current) syncFlowState(item, result.state)
+              } catch (cause) {
+                if (current) updateItem(item.id, {syncError:cause?.message || String(cause)})
+              }
+            }
+          } finally { busy = false }
+        }
+        refreshList()
+        const timer = setInterval(refreshList, 15000)
+        return () => { current = false; clearInterval(timer) }
+      }, [selectedId, repos])
 
       React.useEffect(() => {
         if (!selected?.id || !orcaState?.runId || orcaStateError) return
@@ -374,15 +410,18 @@ window.__ModuleLoader__.load({
 
       function save(next) {
         setItems(next)
+      }
+
+      React.useEffect(() => {
         try {
-          window.localStorage.setItem(storageKey, JSON.stringify(next))
+          window.localStorage.setItem(storageKey, JSON.stringify(items))
           setPersistenceError(false)
         } catch { setPersistenceError(true) }
-      }
+      }, [items])
 
       function updateItem(id, patch, eventText) {
         const at = new Date().toISOString()
-        save(items.map(item => item.id !== id ? item : {
+        save(currentItems => currentItems.map(item => item.id !== id ? item : {
           ...item, ...patch, updatedAt: at,
           notes: eventText ? [{ at, text: eventText }, ...(Array.isArray(item.notes) ? item.notes : [])] : item.notes
         }))
@@ -429,12 +468,13 @@ window.__ModuleLoader__.load({
           if (!response.ok || !result.ok) throw new Error(result.error || `${response.status}`)
           updateItem(item.id, {}, `续办指令已发送到 Orca coordinator（Run ${result.runId}）`)
           setContinueDraft('')
+          orcaRefreshRef.current?.(true)
         } catch (cause) { setError(`发送续办指令到 Orca 失败：${cause?.message || String(cause)}`) }
         finally { setContinuing(false) }
       }
 
       async function interruptWorker(item, worker) {
-        const reason = interruptReason.trim()
+        const reason = continueDraft.trim()
         if (!reason) return
         setInterruptingDispatchId(worker.dispatchId)
         setError('')
@@ -450,7 +490,8 @@ window.__ModuleLoader__.load({
           const result = await response.json()
           if (!response.ok || !result.ok) throw new Error(result.error || `${response.status}`)
           updateItem(item.id, {}, `${worker.taskTitle} 已中断（${worker.dispatchId}）；${reason}；本次未验证。${result.fenced ? '' : 'Dispatch 隔离未确认，请核对。'}${result.recorded ? '' : 'Orca Task 状态未确认，请核对。'}${result.coordinatorNotified ? 'Orca 已接受续办指令，等待接续。' : 'Orca 通知未确认，请人工核对。'}`)
-          setInterruptReason('')
+          setContinueDraft('')
+          orcaRefreshRef.current?.(true)
         } catch (cause) { setError(`中断 Worker 失败：${cause?.message || String(cause)}`) }
         finally { setInterruptingDispatchId('') }
       }
@@ -477,6 +518,7 @@ window.__ModuleLoader__.load({
           updateItem(item.id, { answeredQuestionIds: answeredIds }, result.coordinatorNotified
             ? '已通过 Harness 答复 Orca 问题，并通知 coordinator 继续流程'
             : '已通过 Harness 答复 Orca 问题；coordinator 通知未确认，请刷新 Orca 状态')
+          orcaRefreshRef.current?.(true)
         } catch (cause) { setError(`答复 Orca 问题失败：${cause?.message || String(cause)}`) }
         finally { setAnsweringQuestionId('') }
       }
@@ -529,7 +571,7 @@ window.__ModuleLoader__.load({
       function addNote() {
         if (!selected || !noteDraft.trim()) return
         const at = new Date().toISOString()
-        save(items.map(item => item.id !== selected.id ? item : {
+        save(currentItems => currentItems.map(item => item.id !== selected.id ? item : {
           ...item, updatedAt: at, notes: [{ at, text: noteDraft.trim() }, ...(Array.isArray(item.notes) ? item.notes : [])]
         }))
         setNoteDraft('')
@@ -581,7 +623,7 @@ window.__ModuleLoader__.load({
         } catch (cause) { setError(cause?.message || String(cause)) }
         finally {
           if (createdFlows.length) {
-            save([...createdFlows, ...items])
+            save(currentItems => [...createdFlows, ...currentItems.filter(item => !createdFlows.some(created => created.id === item.id))])
             setSelectedWorkItemIds(ids => ids.filter(id => !startedIds.includes(id)))
             if (startedIds.length === selectedItems.length) setCreationInstructions('')
           }
@@ -612,7 +654,7 @@ window.__ModuleLoader__.load({
         if (deletingFlowId === selected?.id) return
         if (!selected || !window.confirm(t('deleteFlowConfirm')(selected.bugId))) return
         setDeletingFlowId(selected.id)
-        save(items.filter(item => item.id !== selected.id))
+        save(currentItems => currentItems.filter(item => item.id !== selected.id))
         setSelectedId(null)
         setNoteDraft('')
       }
@@ -652,10 +694,13 @@ window.__ModuleLoader__.load({
           ...[...qaResult.matchAll(/Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+).*?-- in\s+([\w.$]+)/g)]
             .map(([, total, failures, errors, skipped, test]) => `${test}: ${total} run, ${failures} failed, ${errors} errors, ${skipped} skipped`)
         ])]
-        const qaStatus = state?.qa?.skipped ? '未验证'
+        const qaStatus = state?.qa?.skipped || (state?.qa?.status === 'completed' && state?.qa?.unverified) ? '未验证'
           : state?.qa?.status === 'failed' || (state?.qa?.status === 'completed' && (!state?.qa?.crossValidated || state?.qa?.outcome === 'failed')) ? '未通过'
             : state?.qa?.status === 'completed' ? '已完成' : '进行中'
-        const question = questions.find(item => item.id === questionDialogId)
+        const question = questions[0]
+        const plannedCases = state?.review?.testCases || []
+        const qaCases = state?.qa?.testCases || []
+        const caseStatus = { passed: '完成', failed: '失败', skipped: '跳过', blocked: '阻断', not_run: '未运行' }
         const requirementsAlreadyPassed = Boolean(item.requirementsConfirmedAt)
           || [state?.stage, item.stage].some(stage => stages.indexOf(stage) > stages.indexOf('requirements'))
         const reportUrl = state?.review?.reportPath ? `/auto-dev-flow/orca/report?${new URLSearchParams({
@@ -667,69 +712,47 @@ window.__ModuleLoader__.load({
           analysis_task_missing: t('analysisTaskMissing'), worker_missing: t('workerMissing')
         }[state?.status]
         return h(React.Fragment, null,
-          h('section', { className: 'adf__notes', 'aria-label': t('pendingQuestions') },
+          (questions.length || orcaStateError || stateMessage || !state) ? h('section', { className: 'adf__notes', 'aria-label': t('pendingQuestions') },
             h('h3', { className: 'adf__notes-title' }, t('pendingQuestions')),
             orcaStateError ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, `读取 Orca 问题失败：${orcaStateError}`) : null,
             stateMessage ? h('div', { className: 'adf__notice', role: 'status' }, stateMessage) : null,
             !state ? h('div', { className: 'adf__label' }, t('waitingAnalysis')) : questions.length === 0 && !stateMessage
               ? h('div', { className: 'adf__label' }, t('noQuestions'))
-              : questions.length ? h('div', { className: 'adf__actions' },
-                h('span', { className: 'adf__label' }, `有 ${questions.length} 个问题待确认`),
+              : questions.length ? h('div', { className: 'adf__label' }, `有 ${questions.length} 个问题待确认，当前显示第一个`) : null,
+            question ? h('div', { className: 'adf__question' },
+              h('h4', { className: 'adf__question-title' }, question.subject || 'Orca 待确认问题'),
+              h('div', { className: 'adf__review-body' }, question.question),
+              question.options?.length ? h('div', { className: 'adf__question-options' }, ...question.options.map(option => h('button', {
+                className: 'adf__button', key: option,
+                onClick: () => setAnswerDrafts(drafts => ({ ...drafts, [question.id]: option }))
+              }, option))) : null,
+              h('div', { className: 'adf__note-compose' },
+                h('textarea', {
+                  className: 'adf__textarea', value: answerDrafts[question.id] || '',
+                  onChange: event => setAnswerDrafts(drafts => ({ ...drafts, [question.id]: event.target.value })),
+                  placeholder: t('answerPlaceholder'), maxLength: 4000
+                }),
                 h('button', {
-                  className: 'adf__button', onClick: () => setQuestionDialogId(questions[0].id)
-                }, '打开待确认问题')
-              ) : null,
-            question ? h('div', { className: 'adf__modal-backdrop', onClick: () => {
-              setDismissedQuestionIds(ids => [...new Set([...ids, question.id])])
-              setQuestionDialogId('')
-            } },
-              h('section', {
-                className: 'adf__modal adf__question-modal', role: 'dialog', 'aria-modal': true,
-                'aria-labelledby': 'adf-orca-question-title', onClick: event => event.stopPropagation()
-              },
-                h('header', { className: 'adf__modal-head' },
-                  h('h2', { id: 'adf-orca-question-title' }, question.subject || 'Orca 待确认问题'),
-                  h('button', {
-                    className: 'adf__button adf__flow-drawer-close',
-                    onClick: () => {
-                      setDismissedQuestionIds(ids => [...new Set([...ids, question.id])])
-                      setQuestionDialogId('')
-                    },
-                    'aria-label': '稍后处理', title: '稍后处理'
-                  }, '×')
-                ),
-                h('div', { className: 'adf__details' },
-                  h('div', { className: 'adf__review-body' }, question.question),
-                  question.options?.length ? h('div', { className: 'adf__question-options' }, ...question.options.map(option => h('button', {
-                    className: 'adf__button', key: option,
-                    onClick: () => setAnswerDrafts(drafts => ({ ...drafts, [question.id]: option }))
-                  }, option))) : null,
-                  h('div', { className: 'adf__note-compose' },
-                    h('textarea', {
-                      className: 'adf__textarea', value: answerDrafts[question.id] || '',
-                      onChange: event => setAnswerDrafts(drafts => ({ ...drafts, [question.id]: event.target.value })),
-                      placeholder: t('answerPlaceholder'), maxLength: 4000
-                    }),
-                    h('button', {
-                      className: 'adf__button adf__button--primary',
-                      onClick: () => answerOrcaQuestion(item, question),
-                      disabled: answeringQuestionId === question.id || !String(answerDrafts[question.id] || '').trim()
-                    }, answeringQuestionId === question.id ? t('sendingAnswer') : t('sendAnswer'))
-                  )
-                )
-              )
+                  className: 'adf__button adf__button--primary',
+                  onClick: () => answerOrcaQuestion(item, question),
+                  disabled: answeringQuestionId === question.id || !String(answerDrafts[question.id] || '').trim()
+                }, answeringQuestionId === question.id ? t('sendingAnswer') : t('sendAnswer'))
+              ),
+              error?.startsWith('答复 Orca 问题失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null
             ) : null
-          ),
-          h('section', { className: 'adf__notes', 'aria-label': t('requirementsReview') },
-            h('h3', { className: 'adf__notes-title' }, t('requirementsReview')),
+          ) : null,
+          h('details', { className: 'adf__metadata', open: !requirementsAlreadyPassed },
+            h('summary', { className: 'adf__metadata-summary' }, `${t('requirementsReview')}${requirementsAlreadyPassed ? ' · 已确认' : ''}`),
             state?.analysisAgent ? h('div', { className: 'adf__label' }, `${t('analysisWorker')}: ${state.analysisAgent}${state.analysisModel ? ` · ${state.analysisModel}` : ''} · ${state.analysisState || 'working'}`) :
-              h('div', { className: 'adf__label' }, t('waitingAnalysis')),
+              h('div', { className: 'adf__label' }, state?.review ? '需求分析已完成，结论已从 Orca 持久记录恢复。' : t('waitingAnalysis')),
             state?.review ? h(React.Fragment, null,
               requirementsAlreadyPassed ? h('div', { className: 'adf__notice', role: 'status' }, '流程已进入后续阶段，需求确认已关闭。') : null,
-              h('div', { className: 'adf__review-body' }, state.review.body || state.review.subject),
+              h('div', { className: 'adf__review-body' }, String(state.review.body || state.review.subject).replace(/(?:file:\/\/)?\/[^\s]+\.html?\b/g, '（完整评审页见下方）')),
               reportUrl ? h(React.Fragment, null,
-                h('a', { href: reportUrl, target: '_blank', rel: 'noopener noreferrer' }, '在新窗口查看完整需求评审页'),
-                h('iframe', { className: 'adf__review-frame', src: reportUrl, title: `${item.bugId} 完整需求评审页`, sandbox: 'allow-scripts' })
+                h('details', { className: 'adf__metadata' },
+                  h('summary', { className: 'adf__metadata-summary' }, '在此展开完整评审页'),
+                  h('iframe', { className: 'adf__review-frame', src: reportUrl, title: `${item.bugId} 完整需求评审页`, sandbox: 'allow-scripts' })
+                )
               ) : null
             ) : h('div', { className: 'adf__label' }, t('waitingReview')),
             error?.startsWith('确认需求失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null,
@@ -739,17 +762,28 @@ window.__ModuleLoader__.load({
               disabled: requirementsAlreadyPassed || confirmingRequirements || !state?.review || questions.length > 0
             }, requirementsAlreadyPassed ? '需求确认已关闭' : confirmingRequirements ? '确认中…' : item.confirmRetryRequestId ? '重试需求确认' : t('confirmRequirements'))
           ),
-          state?.qa ? h('section', { className: 'adf__notes', 'aria-label': '独立验证结果' },
-            h('h3', { className: 'adf__notes-title' }, '独立验证结果'),
-            h('div', { className: 'adf__label' }, `验证状态：${qaStatus}`),
+          state?.qa || plannedCases.length ? h('details', { className: 'adf__metadata', open: state?.stage === 'tests' && !state?.qa?.skipped },
+            h('summary', { className: 'adf__metadata-summary' }, `独立验证结果 · ${state?.qa ? qaStatus : '未开始'}`),
+            h('div', { className: 'adf__label' }, `验证状态：${state?.qa ? qaStatus : '未开始'}`),
+            plannedCases.length ? h('ul', { className: 'adf__qa-results' }, ...plannedCases.map(testCase => {
+              const actual = qaCases.find(result => result.id === testCase.id)
+              const status = state?.qa?.skipped ? '未完成（用户跳过）' : caseStatus[actual?.status] || '未完成'
+              return h('li', { key: testCase.id }, `${testCase.id} · ${status} · ${testCase.title || testCase.expected || ''}${actual?.evidence ? ` · ${actual.evidence}` : ''}`)
+            })) : null,
             qaTestOutput.length
               ? h('ul', { className: 'adf__qa-results' }, ...qaTestOutput.map(result => h('li', { key: result }, result)))
-              : h('div', { className: 'adf__label' }, state.qa.status === 'completed' ? '没有识别到测试用例输出。' : '等待测试用例输出。')
+              : !plannedCases.length && h('div', { className: 'adf__label' }, state?.qa?.skipped ? '用户已中断或跳过验证；本轮未验证。' : state?.qa?.status === 'completed' ? '没有识别到测试用例输出。' : '等待测试用例输出。')
           ) : null,
           h('section', { className: 'adf__notes', 'aria-label': '提交与评审' },
             h('h3', { className: 'adf__notes-title' }, '提交与评审'),
             error?.startsWith('提交 Review 失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null,
-            item.reviewSubmittedAt || state?.reviewSubmitted ? h('div', { className: 'adf__notice', role: 'status' }, state?.mrReviewNote || '指令已送达 Orca：核对当前改动，提交、推送分支并创建 GitLab MR，再进行正式代码评审。') :
+            item.reviewSubmittedAt || state?.reviewSubmitted ? h(React.Fragment, null,
+              h('div', { className: 'adf__notice', role: 'status' }, state?.mrReviewNote || '指令已送达 Orca：核对当前改动，提交、推送分支并创建 GitLab MR，再进行正式代码评审。'),
+              state?.mrReview?.completed && state.mrReview.current !== false ? h('div', { className: 'adf__label' },
+                state.flowStatus === 'completed' ? '本轮流程已结束；QA 结果和 MR 状态分别保留。'
+                  : questions.length ? '评审已完成，请在上方选择后续处理。' : '评审已完成，等待后续处理。',
+                state.mrReview.noteUrl ? externalLink(state.mrReview.noteUrl, '查看完整评审意见') : null) : null
+            ) :
               h('button', {
                 className: 'adf__button adf__button--primary',
                 onClick: event => { event.stopPropagation(); submitReview(item) },
@@ -937,7 +971,7 @@ window.__ModuleLoader__.load({
                       h('td', { title: item.title || '' }, item.title || '—'),
                       h('td', { title: item.repository || '' }, item.repository || '—'),
                       h('td', null, stageLabel(item.stage)),
-                      h('td', null, h('span', { className: 'adf__pill' }, item.paused ? t('paused') : t(item.status === 'completed' ? 'completed' : 'active'))),
+                      h('td', null, h('span', { className: 'adf__pill', title: item.syncError || '' }, item.syncError ? '同步失败' : item.paused ? t('paused') : t(['completed', 'waiting', 'reviewed'].includes(item.status) ? item.status : 'active'))),
                       h('td', { title: timeLabel(item.updatedAt, currentLocale) }, timeLabel(item.updatedAt, currentLocale, true)),
                       h('td', { className: 'adf__expand-cell' }, h('button', {
                         className: 'adf__button adf__flow-action', onClick: event => { event.stopPropagation(); setSelectedId(item.id) },
@@ -971,7 +1005,7 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'adf__details' },
                   h('div', { className: 'adf__detail-head' },
                     h('div', null, h('div', { className: 'adf__label' }, selected.title)),
-                    h('span', { className: 'adf__pill' }, selected.paused ? t('paused') : t(selected.status === 'completed' ? 'completed' : 'active'))
+                    h('span', { className: 'adf__pill' }, selected.paused ? t('paused') : t(['completed', 'waiting', 'reviewed'].includes(selected.status) ? selected.status : 'active'))
                   ),
                   h('label', { className: 'adf__field', style: { marginTop: '11px' } },
                     h('span', { className: 'adf__label' }, t('currentStage')),
@@ -994,8 +1028,8 @@ window.__ModuleLoader__.load({
                       deletingFlowId === selected.id ? '删除中…' : t('deleteFlow')),
                     selected.gitlabMrUrl && externalLink(selected.gitlabMrUrl, t('openMr'))
                   ),
-                  h('section', { className: 'adf__notes' },
-                    h('h3', { className: 'adf__notes-title' }, t('notes')),
+                  h('details', { className: 'adf__metadata' },
+                    h('summary', { className: 'adf__metadata-summary' }, `${t('notes')} · ${(selected.notes || []).length}`),
                     (selected.notes || []).length === 0 ? h('div', { className: 'adf__label' }, t('noNotes')) :
                       h('ul', { className: 'adf__note-list' }, ...(selected.notes || []).map((note, index) => h('li', { className: 'adf__note', key: `${note.at}-${index}` },
                         h('time', { dateTime: note.at }, timeLabel(note.at, currentLocale)), note.text
@@ -1006,36 +1040,27 @@ window.__ModuleLoader__.load({
                     )
                   ),
                   h('section', { className: 'adf__notes' },
-                    h('h3', { className: 'adf__notes-title' }, 'Orca 续办指令'),
-                    h('div', { className: 'adf__label' }, '验证失败时可要求回原开发 Agent 修复并定向复测；也可明确终止/跳过验证并指定下一阶段。跳过会记录为“未验证”。'),
-                    h('div', { className: 'adf__note-compose' },
+                    h('h3', { className: 'adf__notes-title' }, '与 Orca 沟通'),
+                    h('div', { className: 'adf__label' }, '说明要继续、返修或跳过的事项。跳过验证会记录为“未验证”。有执行中的 Worker 时，也可用同一条说明中断并继续。'),
+                    h('div', { className: 'adf__orca-compose' },
                       h('textarea', {
-                        className: 'adf__textarea', value: continueDraft,
+                        className: 'adf__textarea', value: continueDraft, maxLength: 1000,
                         onChange: event => setContinueDraft(event.target.value),
-                        placeholder: '例如：返修清单交回原开发 Agent，修复后由 Grok 定向复测；或跳过剩余验证，标记未验证并继续 Review。'
+                        placeholder: '例如：把返修清单交回原开发 Agent，修复后定向复测；或跳过剩余验证，标记未验证并继续。'
                       }),
-                      h('button', {
-                        className: 'adf__button', onClick: () => continueInOrca(selected),
-                        disabled: continuing || !continueDraft.trim() || !repoIdFor(selected) || !selected.worktree
-                      }, continuing ? '发送中…' : '发送到 Orca')
-                    )
-                  ),
-                  h('section', { className: 'adf__notes', 'aria-label': '中断当前执行' },
-                    h('h3', { className: 'adf__notes-title' }, '中断当前执行并继续'),
-                    h('div', { className: 'adf__label' }, '用于测试过慢或卡住：关闭所选 Worker 终端，并让 Orca 记录本次验证未完成后继续。'),
-                    error?.startsWith('中断 Worker 失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null,
-                    h('textarea', {
-                      className: 'adf__textarea', value: interruptReason, maxLength: 1000,
-                      onChange: event => setInterruptReason(event.target.value),
-                      placeholder: '写明要中断的测试及原因，例如：某测试死循环，跳过本次验证并继续后续阶段'
-                    }),
-                    (orcaState?.activeWorkers || []).length ? h('div', { className: 'adf__actions' },
-                      ...(orcaState.activeWorkers.map(worker => h('button', {
-                        className: 'adf__button', key: worker.dispatchId,
-                        onClick: () => interruptWorker(selected, worker),
-                        disabled: Boolean(interruptingDispatchId) || !interruptReason.trim()
-                      }, interruptingDispatchId === worker.dispatchId ? '中断中…' : `中断 ${worker.taskTitle} 并继续`)))
-                    ) : h('div', { className: 'adf__label' }, '当前没有可中断的执行 Worker。')
+                      h('div', { className: 'adf__orca-compose-actions' },
+                        (orcaState?.activeWorkers || []).map(worker => h('button', {
+                          className: 'adf__button adf__button--danger', key: worker.dispatchId,
+                          onClick: () => interruptWorker(selected, worker),
+                          disabled: continuing || Boolean(interruptingDispatchId) || !continueDraft.trim()
+                        }, interruptingDispatchId === worker.dispatchId ? '中断中…' : `中断 ${worker.taskTitle} 并继续`)),
+                        h('button', {
+                          className: 'adf__button adf__button--primary', onClick: () => continueInOrca(selected),
+                          disabled: continuing || Boolean(interruptingDispatchId) || !continueDraft.trim() || !repoIdFor(selected) || !selected.worktree || !orcaState?.runId || !orcaState?.coordinatorTerminal || Boolean(orcaStateError)
+                        }, continuing ? '发送中…' : '发送到 Orca')
+                      )
+                    ),
+                    error?.startsWith('中断 Worker 失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null
                   ),
                   flowQuestionsAndReview(selected),
                   h('details', { className: 'adf__metadata' },
