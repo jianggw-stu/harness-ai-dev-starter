@@ -1,0 +1,14 @@
+.gitignore
+  h_67c4a0e1a64980 17-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "52290af61dfb9210bdcfe75ada2da33217f7caf5",
+  "prompts": {},
+  "humans": {
+    "h_67c4a0e1a64980": {
+      "author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
