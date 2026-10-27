@@ -1,0 +1,20 @@
+harness-plugins/auto-dev-flow/index.js
+  s_4ddd9938dae7fa::t_4b4ad13af99cb5 344
+  s_4ddd9938dae7fa::t_ba4e7d8b945243 345-346
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "3f31e21fcfd760eda6fca2a1fe91f4206b755810",
+  "prompts": {},
+  "sessions": {
+    "s_4ddd9938dae7fa": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "01a1626a-4279-7f60-b986-ac5b98282444",
+        "model": "gpt-6-luna"
+      },
+      "human_author": "jianggw-stu <jianggw-stu@users.noreply.github.com>"
+    }
+  }
+}
