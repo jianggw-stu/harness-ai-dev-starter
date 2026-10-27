@@ -72,6 +72,9 @@ def check_sensitive_data(target_dir):
         if '.git' in root:
             continue
         for f in files:
+            # 忽略发布与门禁脚本自身
+            if f in ('publish.sh', 'security_guard.py'):
+                continue
             # 仅检查文本与源码文件
             if f.endswith(('.md', '.sh', '.js', '.json', '.yaml', '.yml', '.example', '.svg', '.html', '.css')):
                 file_path = os.path.join(root, f)
@@ -95,6 +98,8 @@ if __name__ == '__main__':
             if '.git' in root:
                 continue
             for f in files:
+                if f in ('publish.sh', 'security_guard.py'):
+                    continue
                 if f.endswith(('.md', '.sh', '.js', '.json', '.yaml', '.yml', '.example', '.svg', '.html', '.css')):
                     sanitize_file(os.path.join(root, f))
         print(f"✔ 已对目标目录完成全量自动脱敏替换: {target}")

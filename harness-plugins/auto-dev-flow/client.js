@@ -37,7 +37,7 @@ window.__ModuleLoader__.load({
       stage_implementation: '开发实现', stage_tests: '测试', stage_mrPreparation: '提交 MR', stage_mrReview: 'MR 评审', stage_mrReviewed: '评审完成', stage_acceptance: '验收', stage_archive: '归档'
     }
     const cssText = `
-      .adf { height:100%; overflow:auto; padding:24px clamp(16px,2.5vw,36px); color:var(--dsw-alias-label-primary); }
+      .adf { --dsw-alias-label-primary:#20242b; --dsw-alias-label-secondary:#626c7b; --dsw-alias-bg-base:#fff; --dsw-alias-bg-layer-1:#fff; --dsw-alias-bg-layer-2:#f6f7fa; --dsw-alias-border-l1:#e7eaf0; --dsw-alias-brand-primary:#4b63d6; --dsw-alias-link:#4b63d6; --dsw-alias-state-success-primary:#23845b; --dsw-alias-state-error-primary:#c8434c; height:100%; overflow:auto; padding:24px clamp(16px,2.5vw,36px); background:#eef1f5; color:var(--dsw-alias-label-primary); }
       .adf__inner { max-width:1480px; margin:0 auto; }
       .adf__header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px; }
       .adf__title { margin:0; font-size:24px; line-height:1.3; font-weight:650; letter-spacing:-.02em; }
@@ -95,6 +95,43 @@ window.__ModuleLoader__.load({
       .adf__flow-drawer-head h2 { margin:0; font-size:15px; }
       .adf__flow-drawer-close { width:32px; min-height:32px; padding:0; border-radius:50%; font-size:20px; line-height:1; }
       .adf__flow-drawer-body { min-height:0; overflow:auto; overscroll-behavior:contain; }
+      .adf__phase-progress { display:flex; align-items:center; gap:8px; padding:14px 20px 13px; border-bottom:1px solid var(--dsw-alias-border-l1); }
+      .adf__phase-progress-title { flex:0 0 auto; margin-right:8px; color:var(--dsw-alias-label-secondary); font-size:12px; font-weight:600; }
+      .adf__phase { display:flex; align-items:center; gap:7px; min-width:0; color:var(--dsw-alias-label-secondary); font-size:12px; white-space:nowrap; }
+      .adf__phase-dot { display:grid; width:22px; height:22px; flex:0 0 auto; place-items:center; border:1px solid var(--dsw-alias-border-l1); border-radius:50%; background:var(--dsw-alias-bg-layer-1); font-size:11px; font-weight:650; }
+      .adf__phase--complete { color:var(--dsw-alias-state-success-primary); }
+      .adf__phase--complete .adf__phase-dot { border-color:var(--dsw-alias-state-success-primary); }
+      .adf__phase--attention { color:#b45b12; }
+      .adf__phase--attention .adf__phase-dot { border-color:#b45b12; }
+      .adf__phase--active { color:var(--dsw-alias-brand-primary); font-weight:650; }
+      .adf__phase--active .adf__phase-dot { border-color:var(--dsw-alias-brand-primary); background:var(--dsw-alias-brand-primary); color:var(--dsw-alias-bg-base); box-shadow:0 0 0 3px color-mix(in srgb,var(--dsw-alias-brand-primary) 15%,transparent); }
+      .adf__phase-line { height:1px; min-width:10px; flex:1 1 auto; background:var(--dsw-alias-border-l1); }
+      .adf__phase-line--complete { background:var(--dsw-alias-state-success-primary); }
+      .adf__detail-tabs { position:sticky; top:0; z-index:2; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:12px 20px; border-bottom:1px solid var(--dsw-alias-border-l1); background:var(--dsw-alias-bg-layer-2); }
+      .adf__detail-tab { min-width:0; min-height:42px; border:1px solid var(--dsw-alias-border-l1); border-radius:8px; padding:0 12px; background:var(--dsw-alias-bg-layer-1); color:var(--dsw-alias-label-secondary); font:inherit; font-size:12px; text-align:left; cursor:pointer; white-space:nowrap; transition:background-color .16s,border-color .16s,color .16s; }
+      .adf__detail-tab:hover { border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 35%,var(--dsw-alias-border-l1)); color:var(--dsw-alias-label-primary); }
+      .adf__detail-tab[aria-current="page"] { border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 42%,var(--dsw-alias-border-l1)); background:color-mix(in srgb,var(--dsw-alias-brand-primary) 9%,var(--dsw-alias-bg-layer-1)); color:var(--dsw-alias-brand-primary); font-weight:650; }
+      .adf__detail-tab-status { display:block; margin-top:3px; font-size:10px; font-weight:600; color:var(--dsw-alias-label-secondary); }
+      .adf__detail-tab-status[data-state="done"] { color:#198754; }
+      .adf__detail-tab-status[data-state="attention"] { color:#b45b12; }
+      .adf__detail-tab-status[data-state="failed"] { color:var(--dsw-alias-state-error-primary); }
+      .adf__detail-tab:focus-visible { outline:2px solid var(--dsw-alias-brand-primary); outline-offset:2px; }
+      .adf__detail-tab-count { margin-left:5px; padding:2px 6px; border-radius:10px; background:var(--dsw-alias-state-error-primary); color:var(--dsw-alias-bg-base); font-size:10px; }
+      .adf__tab-panel { padding:18px 20px 24px; }
+      .adf__tab-heading { margin:0 0 4px; font-size:18px; line-height:1.4; font-weight:650; }
+      .adf__tab-description { margin:0 0 16px; color:var(--dsw-alias-label-secondary); font-size:13px; line-height:1.55; }
+      .adf__tab-card { min-width:0; padding:15px 16px; border:1px solid var(--dsw-alias-border-l1); border-radius:10px; background:var(--dsw-alias-bg-layer-1); }
+      .adf__tab-card + .adf__tab-card { margin-top:12px; }
+      .adf__overview-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+      .adf__overview-label { display:block; margin-bottom:7px; color:var(--dsw-alias-label-secondary); font-size:12px; }
+      .adf__overview-value { font-size:14px; font-weight:650; line-height:1.5; overflow-wrap:anywhere; }
+      .adf__overview-note { margin-top:5px; color:var(--dsw-alias-label-secondary); font-size:12px; line-height:1.5; }
+      .adf__link-button { margin-top:7px; border:0; padding:0; background:transparent; color:var(--dsw-alias-brand-primary); font:inherit; font-size:12px; cursor:pointer; }
+      .adf__link-button:hover { text-decoration:underline; }
+      .adf__overview-recent { margin-top:12px; }
+      .adf__tab-title { margin:0 0 10px; font-size:14px; font-weight:650; }
+      .adf__tab-panel .adf__notes { margin:0; border:0; padding:0; }
+      .adf__tab-empty { padding:18px 14px; border:1px dashed var(--dsw-alias-border-l1); border-radius:9px; color:var(--dsw-alias-label-secondary); font-size:13px; }
       .adf__id { color:var(--dsw-alias-brand-primary); font-weight:650; white-space:nowrap; }
       .adf__pill { display:inline-flex; align-items:center; padding:3px 8px; border:1px solid var(--dsw-alias-border-l1); border-radius:7px; font-size:11px; white-space:nowrap; }
       .adf__empty { padding:30px 16px; text-align:center; color:var(--dsw-alias-label-secondary); font-size:13px; }
@@ -119,6 +156,27 @@ window.__ModuleLoader__.load({
       .adf__metadata-summary { color:var(--dsw-alias-label-secondary); font-size:12px; font-weight:600; cursor:pointer; }
       .adf__metadata-summary:focus-visible { outline:2px solid var(--dsw-alias-brand-primary); outline-offset:3px; }
       .adf__metadata[open] .adf__metadata-summary { margin-bottom:11px; }
+      .adf__qa-state { display:flex; flex-wrap:wrap; align-items:center; gap:7px; margin-bottom:12px; color:var(--dsw-alias-label-secondary); font-size:11px; }
+      .adf__qa-count { padding:4px 8px; border:1px solid var(--dsw-alias-border-l1); border-radius:6px; background:var(--dsw-alias-bg-layer-1); }
+      .adf__qa-list,.adf__dependency-list { display:grid; gap:0; margin:0; padding:0; list-style:none; }
+      .adf__qa-item,.adf__dependency-item { min-width:0; padding:11px 0; border-top:1px solid var(--dsw-alias-border-l1); }
+      .adf__qa-head,.adf__dependency-head { display:flex; align-items:flex-start; gap:9px; min-width:0; }
+      .adf__qa-id { flex:0 0 auto; color:var(--dsw-alias-label-secondary); font:600 11px/1.6 ui-monospace,SFMono-Regular,monospace; }
+      .adf__qa-title,.adf__dependency-title { flex:1; min-width:0; font-size:12px; font-weight:600; overflow-wrap:anywhere; }
+      .adf__qa-badge { flex:0 0 auto; padding:2px 7px; border-radius:5px; font-size:10px; font-weight:650; white-space:nowrap; }
+      .adf__qa-badge--passed { color:#24704c; background:color-mix(in srgb,#24704c 11%,var(--dsw-alias-bg-layer-1)); }
+      .adf__qa-badge--failed { color:var(--dsw-alias-state-error-primary); background:color-mix(in srgb,var(--dsw-alias-state-error-primary) 10%,var(--dsw-alias-bg-layer-1)); }
+      .adf__qa-badge--partial { color:#8c5b00; background:color-mix(in srgb,#8c5b00 11%,var(--dsw-alias-bg-layer-1)); }
+      .adf__qa-badge--unverified { color:var(--dsw-alias-label-secondary); background:var(--dsw-alias-bg-layer-2); }
+      .adf__qa-evidence,.adf__dependency-detail { margin:7px 0 0 40px; color:var(--dsw-alias-label-secondary); font-size:11px; line-height:1.55; overflow-wrap:anywhere; }
+      .adf__qa-evidence summary,.adf__dependency-detail summary { cursor:pointer; color:var(--dsw-alias-brand-primary); font-weight:550; }
+      .adf__qa-evidence p,.adf__dependency-detail p { margin:6px 0 0; }
+      .adf__dependency-list { margin-top:4px; }
+      .adf__dependency-head { cursor:pointer; }
+      .adf__dependency-detail { margin-left:0; }
+      .adf__qa-output { margin-top:12px; border-top:1px solid var(--dsw-alias-border-l1); padding-top:10px; }
+      .adf__qa-output summary { cursor:pointer; color:var(--dsw-alias-label-secondary); font-size:11px; font-weight:550; }
+      .adf__qa-output ul { margin:8px 0 0; padding-left:18px; color:var(--dsw-alias-label-secondary); font-size:11px; overflow-wrap:anywhere; }
       .adf__note-list { display:flex; flex-direction:column; gap:8px; max-height:190px; overflow:auto; margin:0; padding:0; list-style:none; }
       .adf__note { padding:8px 9px; border-radius:8px; background:var(--dsw-alias-bg-layer-2); font-size:12px; overflow-wrap:anywhere; }
       .adf__note time { display:block; margin-bottom:3px; color:var(--dsw-alias-label-secondary); font-size:10px; }
@@ -165,7 +223,7 @@ window.__ModuleLoader__.load({
       .adf__pagination-ellipsis { padding:0 2px; }
       .adf__flow-table .adf__expand-cell .adf__button { min-height:30px; padding:5px 9px; border-radius:8px; }
       .adf__flow-table .adf__expand-cell .adf__flow-action { border:0; background:transparent; color:var(--dsw-alias-label-primary); text-decoration:underline; text-underline-offset:3px; }
-      @media(max-width:600px) { .adf__flow-drawer { width:100%; } .adf__flow-drawer-body .adf__details { padding:14px; } }
+      @media(max-width:600px) { .adf__flow-drawer { width:100%; } .adf__flow-drawer-body .adf__details { padding:14px; } .adf__phase-progress { gap:5px; overflow-x:auto; padding:12px 14px; } .adf__phase-progress-title { display:none; } .adf__phase { gap:5px; font-size:11px; } .adf__phase-line { min-width:8px; } .adf__detail-tabs { gap:6px; padding:10px 12px; } .adf__detail-tab { min-height:42px; padding:0 9px; } .adf__tab-panel { padding:15px 14px 20px; } .adf__overview-grid { grid-template-columns:1fr; gap:8px; } }
       @media(max-width:700px) { .adf__toolbar { align-items:stretch; flex-direction:column; } .adf__toolbar--filters,.adf__toolbar--selection { display:flex; flex-direction:column; } .adf__toolbar .adf__select { max-width:none; } .adf__selection-count { align-self:flex-start; } .adf__pagination { align-items:flex-start; flex-direction:column; } }
       @media(max-width:600px) { .adf__header { align-items:flex-start; flex-direction:column; } .adf__field-grid { grid-template-columns:minmax(0,1fr); } .adf__field--wide { grid-column:auto; } }
     `
@@ -182,6 +240,14 @@ window.__ModuleLoader__.load({
       const date = new Date(value)
       const options = compact ? { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' } : { dateStyle: 'medium', timeStyle: 'short' }
       return Number.isNaN(date.getTime()) ? String(value) : new Intl.DateTimeFormat(locale || undefined, options).format(date)
+    }
+
+    function durationLabel(value) {
+      if (!Number.isFinite(value)) return '尚未结束'
+      const seconds = Math.floor(value / 1000)
+      const hours = Math.floor(seconds / 3600)
+      const minutes = Math.floor(seconds % 3600 / 60)
+      return `${hours ? `${hours}小时` : ''}${minutes ? `${minutes}分` : ''}${seconds % 60}秒`
     }
 
     function externalLink(value, label, onClick) {
@@ -221,6 +287,7 @@ window.__ModuleLoader__.load({
       const [deletingFlowId, setDeletingFlowId] = React.useState('')
       const [error, setError] = React.useState('')
       const [selectedId, setSelectedId] = React.useState(null)
+      const [detailTab, setDetailTab] = React.useState('overview')
       const [workItemDetail, setWorkItemDetail] = React.useState(null)
       const [detailLoading, setDetailLoading] = React.useState(false)
       const [detailError, setDetailError] = React.useState('')
@@ -231,6 +298,7 @@ window.__ModuleLoader__.load({
       const [orcaState, setOrcaState] = React.useState(null)
       const [orcaStateError, setOrcaStateError] = React.useState('')
       const orcaRefreshRef = React.useRef(null)
+      const detailNavigationRef = React.useRef({ flowId: '', phase: null, questionId: '' })
       const [orcaRefreshing, setOrcaRefreshing] = React.useState(false)
       const [orcaLastRefreshedAt, setOrcaLastRefreshedAt] = React.useState('')
       const [answerDrafts, setAnswerDrafts] = React.useState({})
@@ -280,6 +348,27 @@ window.__ModuleLoader__.load({
         window.addEventListener('keydown', closeOnEscape)
         return () => window.removeEventListener('keydown', closeOnEscape)
       }, [selectedId])
+
+      React.useEffect(() => { setDetailTab('overview') }, [selectedId])
+
+      function resolvedStage(item, state) {
+        return item?.requirementsConfirmedAt && state?.stage === 'requirements'
+          ? (item.stage || state.stage) : (state?.stage || item?.stage || 'intake')
+      }
+
+      React.useEffect(() => {
+        if (!selectedId || !orcaState?.stage || (selected?.runId && orcaState.runId !== selected.runId)) return
+        const phase = stagePhaseIndex(resolvedStage(selected, orcaState))
+        const questionId = pendingOrcaQuestions[0]?.id || ''
+        const previous = detailNavigationRef.current
+        if (previous.flowId !== selectedId || previous.phase !== phase || previous.questionId !== questionId) {
+          if (questionId && questionId !== previous.questionId) setDetailTab('questions')
+          else if (!questionId && (previous.flowId !== selectedId || previous.phase !== phase || previous.questionId)) {
+            setDetailTab(['requirements', 'implementation', 'qa', 'review'][phase])
+          }
+          detailNavigationRef.current = { flowId: selectedId, phase, questionId }
+        }
+      }, [selectedId, selected?.runId, orcaState?.runId, orcaState?.stage, pendingOrcaQuestions[0]?.id])
 
       async function refreshPingCode() {
         setLoading(true)
@@ -363,14 +452,15 @@ window.__ModuleLoader__.load({
       }, [selected?.id, selected?.stage, selected?.status, selected?.gitlabMrUrl, orcaState?.stage, orcaState?.flowStatus, orcaState?.gitlabMrUrl])
 
       function syncFlowState(item, state) {
-        const stage = item.requirementsConfirmedAt && state.stage === 'requirements' ? item.stage : state.stage
+        const stage = resolvedStage(item, state)
         const patch = {}
         if (stage && item.stage !== stage) patch.stage = stage
         if (state.flowStatus && item.status !== state.flowStatus) patch.status = state.flowStatus
         if (state.gitlabMrUrl && item.gitlabMrUrl !== state.gitlabMrUrl) patch.gitlabMrUrl = state.gitlabMrUrl
         if (item.syncError) patch.syncError = ''
         if (Object.keys(patch).length) updateItem(item.id, patch,
-          patch.gitlabMrUrl ? 'GitLab MR 已关联到当前流程' : `${t('stageChanged')}: ${stageLabel(stage)}（从 Orca 同步）`)
+          patch.gitlabMrUrl ? 'GitLab MR 已关联到当前流程'
+            : patch.stage ? `${t('stageChanged')}: ${stageLabel(stage)}（从 Orca 同步）` : '')
       }
 
       React.useEffect(() => {
@@ -694,13 +784,33 @@ window.__ModuleLoader__.load({
           ...[...qaResult.matchAll(/Tests run:\s*(\d+),\s*Failures:\s*(\d+),\s*Errors:\s*(\d+),\s*Skipped:\s*(\d+).*?-- in\s+([\w.$]+)/g)]
             .map(([, total, failures, errors, skipped, test]) => `${test}: ${total} run, ${failures} failed, ${errors} errors, ${skipped} skipped`)
         ])]
-        const qaStatus = state?.qa?.skipped || (state?.qa?.status === 'completed' && state?.qa?.unverified) ? '未验证'
+        const qaStatus = state?.qa?.skipped ? '已跳过（未验证）' : state?.qa?.current === false
+          ? `${state?.qa?.status === 'failed' ? '上一轮未通过' : state?.qa?.status === 'completed' ? '上一轮已完成' : '上一轮验证'}（当前修复未验证）`
+          : (state?.qa?.status === 'completed' && state?.qa?.unverified) ? '未验证'
           : state?.qa?.status === 'failed' || (state?.qa?.status === 'completed' && (!state?.qa?.crossValidated || state?.qa?.outcome === 'failed')) ? '未通过'
             : state?.qa?.status === 'completed' ? '已完成' : '进行中'
         const question = questions[0]
         const plannedCases = state?.review?.testCases || []
         const qaCases = state?.qa?.testCases || []
-        const caseStatus = { passed: '完成', failed: '失败', skipped: '跳过', blocked: '阻断', not_run: '未运行' }
+        const qaResultCases = qaCases.map((actual, index) => ({
+          testCase: plannedCases.find(item => item.id === actual.id) || { id: actual.id, title: actual.title || actual.id },
+          actual,
+          index
+        }))
+        const caseStatus = { passed: '完成', failed: '失败', partial: '部分验证', not_applicable: '本轮不适用', skipped: '跳过', blocked: '阻断', not_run: '未运行' }
+        const visibleCases = qaResultCases.map(({ testCase, actual, index }) => {
+          const status = state?.qa?.skipped ? 'skipped' : actual?.status || 'not_run'
+          const statusLabel = state?.qa?.skipped ? '用户跳过' : caseStatus[status] || '未完成'
+          const statusClass = status === 'passed' ? 'passed' : status === 'failed' ? 'failed' : status === 'partial' ? 'partial' : 'unverified'
+          return { testCase, actual, status, statusLabel, statusClass, key: testCase.id || index }
+        })
+        const qaCounts = [
+          ['完成', visibleCases.filter(result => result.status === 'passed').length],
+          ['失败', visibleCases.filter(result => result.status === 'failed').length],
+          ['部分验证', visibleCases.filter(result => result.status === 'partial').length],
+          ['本轮不适用', visibleCases.filter(result => result.status === 'not_applicable').length],
+          ['未完成', visibleCases.filter(result => !['passed', 'failed', 'partial', 'not_applicable'].includes(result.status)).length]
+        ].filter(([, count]) => count > 0)
         const requirementsAlreadyPassed = Boolean(item.requirementsConfirmedAt)
           || [state?.stage, item.stage].some(stage => stages.indexOf(stage) > stages.indexOf('requirements'))
         const reportUrl = state?.review?.reportPath ? `/auto-dev-flow/orca/report?${new URLSearchParams({
@@ -711,12 +821,72 @@ window.__ModuleLoader__.load({
           coordinator_missing: t('coordinatorMissing'), run_missing: t('runMissing'),
           analysis_task_missing: t('analysisTaskMissing'), worker_missing: t('workerMissing')
         }[state?.status]
+        const currentStage = resolvedStage(item, state)
+        const activePhase = stagePhaseIndex(currentStage)
+        const tabStatus = {
+          requirements: requirementsAlreadyPassed ? ['已确认', 'done'] : state?.review ? ['待确认', 'attention'] : null,
+          implementation: state?.implementation?.succeeded ? ['已完成', 'done']
+            : state?.implementation?.status === 'failed' ? ['未完成', 'failed']
+              : state?.implementation ? ['进行中', 'active'] : null,
+          qa: state?.qa ? [qaStatus, state.qa.skipped || state.qa.current === false ? 'attention'
+            : state.qa.status === 'failed' ? 'failed' : state.qa.unverified ? 'attention'
+              : state.qa.status === 'completed' ? 'done' : 'active'] : null,
+          review: state?.mrReview?.completed && state.mrReview.current !== false ? ['评审完成', 'done']
+            : currentStage === 'mrPreparation' ? ['待提交', 'attention']
+              : currentStage === 'mrReview' ? ['评审中', 'active']
+                : state?.mrReview?.completed ? ['上轮结果', 'attention'] : null
+        }
+        const detailTabs = [
+          ['overview', '流程概览'],
+          ...(questions.length || activePhase === 0 ? [['questions', t('pendingQuestions')]] : []),
+          ['requirements', t('requirementsReview')],
+          ['implementation', '开发与调用'],
+          ['qa', '独立验证'],
+          ['review', '提交与评审'],
+          ['timeline', t('notes')], ['orca', 'Orca 沟通'], ['runtime', t('runtimeInfo')]
+        ]
+        const activeDetailTab = detailTabs.some(([id]) => id === detailTab) ? detailTab : 'overview'
         return h(React.Fragment, null,
-          (questions.length || orcaStateError || stateMessage || !state) ? h('section', { className: 'adf__notes', 'aria-label': t('pendingQuestions') },
+          h('nav', { className: 'adf__detail-tabs', 'aria-label': '流程详情分类' }, ...detailTabs.map(([id, label]) =>
+            h('button', {
+              key: id, type: 'button', className: 'adf__detail-tab',
+              'aria-current': activeDetailTab === id ? 'page' : undefined, onClick: () => setDetailTab(id)
+            }, label, id === 'questions' && questions.length ? h('span', { className: 'adf__detail-tab-count' }, questions.length) : null,
+              tabStatus[id] ? h('span', { className: 'adf__detail-tab-status', 'data-state': tabStatus[id][1] }, tabStatus[id][0]) : null)
+          )),
+          h('div', { className: 'adf__tab-panel', 'aria-label': detailTabs.find(([id]) => id === activeDetailTab)?.[1] || '流程概览' },
+          activeDetailTab === 'overview' ? h(React.Fragment, null,
+            h('h3', { className: 'adf__tab-heading' }, '流程概览'),
+            h('p', { className: 'adf__tab-description' }, selected.title || '查看当前流程阶段和关键信息。'),
+            h('div', { className: 'adf__overview-grid' },
+              h('section', { className: 'adf__tab-card' },
+                h('span', { className: 'adf__overview-label' }, 'Orca 当前阶段'),
+                h('div', { className: 'adf__overview-value' }, stageLabel(resolvedStage(selected, state))),
+                h('div', { className: 'adf__overview-note' }, state?.flowStatus ? `流程状态：${state.flowStatus}` : '等待 Orca 状态同步')
+              ),
+              h('section', { className: 'adf__tab-card' },
+                h('span', { className: 'adf__overview-label' }, 'GitLab Merge Request'),
+                selected.gitlabMrUrl ? h('div', { className: 'adf__overview-value' }, externalLink(selected.gitlabMrUrl, '打开关联 MR ↗'))
+                  : h('div', { className: 'adf__overview-value' }, '尚未关联'),
+                h('div', { className: 'adf__overview-note' }, 'MR 状态由 GitLab 提供，与 Orca 阶段分开显示')
+              ),
+              h('section', { className: 'adf__tab-card' },
+                h('span', { className: 'adf__overview-label' }, '待处理事项'),
+                h('div', { className: 'adf__overview-value' }, questions.length ? `${questions.length} 个待确认问题` : '当前没有待确认问题'),
+                questions.length ? h('button', { className: 'adf__link-button', onClick: () => setDetailTab('questions') }, '前往确认 →') : null
+              )
+            ),
+            selected.notes?.length ? h('section', { className: 'adf__tab-card adf__overview-recent' },
+              h('h4', { className: 'adf__tab-title' }, '最近动态'),
+              h('div', { className: 'adf__label' }, timeLabel(selected.notes[0].at, currentLocale), ' · ', selected.notes[0].text)
+            ) : null,
+            orcaStateError ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, `刷新 Orca 状态失败：${orcaStateError}`) : null
+          ) : null,
+          activeDetailTab === 'questions' ? h('section', { className: 'adf__tab-pane adf__tab-pane--questions', 'aria-label': t('pendingQuestions') },
             h('h3', { className: 'adf__notes-title' }, t('pendingQuestions')),
             orcaStateError ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, `读取 Orca 问题失败：${orcaStateError}`) : null,
             stateMessage ? h('div', { className: 'adf__notice', role: 'status' }, stateMessage) : null,
-            !state ? h('div', { className: 'adf__label' }, t('waitingAnalysis')) : questions.length === 0 && !stateMessage
+            !state ? !orcaStateError && h('div', { className: 'adf__label', role: 'status' }, '正在同步 Orca 状态…') : questions.length === 0 && !stateMessage
               ? h('div', { className: 'adf__label' }, t('noQuestions'))
               : questions.length ? h('div', { className: 'adf__label' }, `有 ${questions.length} 个问题待确认，当前显示第一个`) : null,
             question ? h('div', { className: 'adf__question' },
@@ -741,48 +911,106 @@ window.__ModuleLoader__.load({
               error?.startsWith('答复 Orca 问题失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null
             ) : null
           ) : null,
-          h('details', { className: 'adf__metadata', open: !requirementsAlreadyPassed },
-            h('summary', { className: 'adf__metadata-summary' }, `${t('requirementsReview')}${requirementsAlreadyPassed ? ' · 已确认' : ''}`),
+          activeDetailTab === 'requirements' ? h('section', { className: 'adf__tab-pane adf__tab-pane--requirements adf__tab-card' },
+            h('h3', { className: 'adf__tab-title' }, `${t('requirementsReview')}${requirementsAlreadyPassed ? ' · 已确认' : ''}`),
             state?.analysisAgent ? h('div', { className: 'adf__label' }, `${t('analysisWorker')}: ${state.analysisAgent}${state.analysisModel ? ` · ${state.analysisModel}` : ''} · ${state.analysisState || 'working'}`) :
-              h('div', { className: 'adf__label' }, state?.review ? '需求分析已完成，结论已从 Orca 持久记录恢复。' : t('waitingAnalysis')),
+              h('div', { className: 'adf__label' }, !state ? '正在同步 Orca 状态…' : state.review ? '需求分析已完成，结论已从 Orca 持久记录恢复。' : t('waitingAnalysis')),
             state?.review ? h(React.Fragment, null,
               requirementsAlreadyPassed ? h('div', { className: 'adf__notice', role: 'status' }, '流程已进入后续阶段，需求确认已关闭。') : null,
-              h('div', { className: 'adf__review-body' }, String(state.review.body || state.review.subject).replace(/(?:file:\/\/)?\/[^\s]+\.html?\b/g, '（完整评审页见下方）')),
+              state.review.reportError ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, state.review.reportError) : null,
+              h('div', { className: 'adf__review-body' }, String(state.review.body || state.review.subject)
+                .replace(/\breportPath\s*[:：]\s*[`"']?[^`"'\r\n;；]+?\.html?[`"']?\s*[;；]?/gi, '')
+                .replace(/\btestCases\s*[:：]\s*\[[\s\S]*?\]\s*[;；]?/gi, '')
+                .replace(/(?:file:\/\/)?\/[^\s]+\.html?\b/g, '（完整评审页见下方）')),
               reportUrl ? h(React.Fragment, null,
                 h('details', { className: 'adf__metadata' },
                   h('summary', { className: 'adf__metadata-summary' }, '在此展开完整评审页'),
                   h('iframe', { className: 'adf__review-frame', src: reportUrl, title: `${item.bugId} 完整需求评审页`, sandbox: 'allow-scripts' })
                 )
               ) : null
-            ) : h('div', { className: 'adf__label' }, t('waitingReview')),
+            ) : h('div', { className: 'adf__label' }, state ? t('waitingReview') : '正在同步 Orca 状态…'),
             error?.startsWith('确认需求失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null,
             h('button', {
               className: 'adf__button adf__button--primary',
               onClick: event => { event.stopPropagation(); confirmRequirements(item) },
-              disabled: requirementsAlreadyPassed || confirmingRequirements || !state?.review || questions.length > 0
+              disabled: requirementsAlreadyPassed || confirmingRequirements || !state?.review?.reportPath || Boolean(state?.review?.reportError) || !plannedCases.length || questions.length > 0
             }, requirementsAlreadyPassed ? '需求确认已关闭' : confirmingRequirements ? '确认中…' : item.confirmRetryRequestId ? '重试需求确认' : t('confirmRequirements'))
-          ),
-          state?.qa || plannedCases.length ? h('details', { className: 'adf__metadata', open: state?.stage === 'tests' && !state?.qa?.skipped },
-            h('summary', { className: 'adf__metadata-summary' }, `独立验证结果 · ${state?.qa ? qaStatus : '未开始'}`),
-            h('div', { className: 'adf__label' }, `验证状态：${state?.qa ? qaStatus : '未开始'}`),
-            plannedCases.length ? h('ul', { className: 'adf__qa-results' }, ...plannedCases.map(testCase => {
-              const actual = qaCases.find(result => result.id === testCase.id)
-              const status = state?.qa?.skipped ? '未完成（用户跳过）' : caseStatus[actual?.status] || '未完成'
-              return h('li', { key: testCase.id }, `${testCase.id} · ${status} · ${testCase.title || testCase.expected || ''}${actual?.evidence ? ` · ${actual.evidence}` : ''}`)
-            })) : null,
-            qaTestOutput.length
-              ? h('ul', { className: 'adf__qa-results' }, ...qaTestOutput.map(result => h('li', { key: result }, result)))
-              : !plannedCases.length && h('div', { className: 'adf__label' }, state?.qa?.skipped ? '用户已中断或跳过验证；本轮未验证。' : state?.qa?.status === 'completed' ? '没有识别到测试用例输出。' : '等待测试用例输出。')
           ) : null,
-          h('section', { className: 'adf__notes', 'aria-label': '提交与评审' },
+          activeDetailTab === 'qa' ? h('section', { className: 'adf__tab-pane adf__tab-pane--qa adf__tab-card' },
+            h('h3', { className: 'adf__tab-title' }, `独立验证结果 · ${state?.qa ? qaStatus : '未开始'}`),
+            h('div', { className: 'adf__qa-state' }, `验证状态：${state?.qa ? qaStatus : '未开始'}`,
+              ...qaCounts.map(([label, count]) => h('span', { className: 'adf__qa-count', key: label }, `${count} ${label}`))),
+            state?.qa?.model ? h('div', { className: 'adf__label' },
+              `验证模型：${state.qa.model} · 思考强度：${state.qa.effort || '未知'}`,
+              state.qa.plannedEffort ? `（计划 ${state.qa.plannedEffort}）` : '') : null,
+            state?.qa?.implementationModel ? h('div', { className: 'adf__label' },
+              `开发模型：${state.qa.implementationModel} · 思考强度：${state.qa.implementationEffort || '未知'}`,
+              state.qa.implementationPlannedEffort ? `（计划 ${state.qa.implementationPlannedEffort}）` : '') : null,
+            state?.qa?.effortMismatch ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, '实际思考强度与最初计划不同，请结合执行记录查看调整原因。') : null,
+            state?.qa?.current === false ? h('div', { className: 'adf__notice', role: 'status' }, '以下用例和结果属于上一轮开发；后续修复尚未重新验证。') : null,
+            visibleCases.length ? h('ul', { className: 'adf__qa-list' }, ...visibleCases.map(({ testCase, actual, statusLabel, statusClass, key }) =>
+              h('li', { className: 'adf__qa-item', key },
+                h('div', { className: 'adf__qa-head' },
+                  h('span', { className: 'adf__qa-id' }, testCase.id || `用例 ${key + 1}`),
+                  h('span', { className: 'adf__qa-title' }, testCase.title || testCase.expected || '未命名用例'),
+                  h('span', { className: `adf__qa-badge adf__qa-badge--${statusClass}` }, statusLabel)
+                ),
+                testCase.expected || actual?.evidence ? h('details', { className: 'adf__qa-evidence', open: statusClass === 'failed' },
+                  h('summary', null, statusClass === 'failed' ? '查看失败证据' : '查看验证证据'),
+                  testCase.expected ? h('p', null, `预期：${testCase.expected}`) : null,
+                  actual?.evidence ? h('p', null, `结果：${actual.evidence}`) : null
+                ) : null
+              )
+            )) : null,
+            qaTestOutput.length
+              ? h('details', { className: 'adf__qa-output' },
+                h('summary', null, `构建与测试输出 · ${qaTestOutput.length}`),
+                h('ul', null, ...qaTestOutput.map(result => h('li', { key: result }, result)))
+              ) : h('div', { className: 'adf__label' }, state?.qa?.skipped ? '用户已中断或跳过验证；本轮未验证。' : state?.qa?.status === 'completed' ? '没有本轮聚焦验证结果。' : '等待本轮聚焦测试结果。')
+          ) : null,
+          activeDetailTab === 'implementation' ? h('section', { className: 'adf__tab-pane adf__tab-pane--implementation adf__tab-card' },
+            h('h3', { className: 'adf__tab-title' }, `开发与调用说明${state?.dependencyNotes?.length ? ` · ${state.dependencyNotes.length}` : ''}`),
+            !state?.stage || state.stage === 'requirements' ? h('div', { className: 'adf__tab-empty' }, '进入开发阶段后，Orca 回传的既有调用说明会显示在这里。') : null,
+            state?.qa?.current === false && state.dependencyNotes?.length ? h('div', { className: 'adf__notice', role: 'status' }, '调用说明来自上一轮 QA；当前修复尚未验证。') : null,
+            Array.isArray(state.dependencyNotes) && state.dependencyNotes.length
+              ? h('ul', { className: 'adf__dependency-list' }, ...state.dependencyNotes.map(note => h('li', {
+                className: 'adf__dependency-item', key: JSON.stringify([note.caller, note.callee])
+              },
+                h('details', null,
+                  h('summary', { className: 'adf__dependency-head' },
+                    h('span', { className: 'adf__dependency-title' }, note.purpose || `${note.caller || '未知调用'} → ${note.callee || '未知目标'}`)),
+                  h('div', { className: 'adf__dependency-detail' },
+                  h('p', null, `调用：${note.caller || '未知调用'} → ${note.callee || '未知目标'}`),
+                  h('p', null, `用途：${note.purpose || '未说明'}`),
+                  h('p', null, `验证：${note.verification || '未提供验证说明'}`),
+                  h('p', null, `影响：${note.impact || '未说明未验证部分的影响'}`)
+                  )
+                )
+              )))
+              : h('div', { className: 'adf__label' }, Array.isArray(state.dependencyNotes)
+                ? '本轮未报告本次改动依赖的既有调用。' : '尚未回传既有调用说明，不能据此认定没有依赖。')
+          ) : null,
+          activeDetailTab === 'review' ? h('section', { className: 'adf__tab-pane adf__tab-pane--review adf__tab-card', 'aria-label': '提交与评审' },
             h('h3', { className: 'adf__notes-title' }, '提交与评审'),
             error?.startsWith('提交 Review 失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null,
             item.reviewSubmittedAt || state?.reviewSubmitted ? h(React.Fragment, null,
               h('div', { className: 'adf__notice', role: 'status' }, state?.mrReviewNote || '指令已送达 Orca：核对当前改动，提交、推送分支并创建 GitLab MR，再进行正式代码评审。'),
-              state?.mrReview?.completed && state.mrReview.current !== false ? h('div', { className: 'adf__label' },
-                state.flowStatus === 'completed' ? '本轮流程已结束；QA 结果和 MR 状态分别保留。'
-                  : questions.length ? '评审已完成，请在上方选择后续处理。' : '评审已完成，等待后续处理。',
-                state.mrReview.noteUrl ? externalLink(state.mrReview.noteUrl, '查看完整评审意见') : null) : null
+              state?.mrReview?.completed && state.mrReview.current !== false ? h(React.Fragment, null,
+                h('div', { className: 'adf__label' },
+                  state.flowStatus === 'completed' ? '本轮流程已结束；QA 结果和 MR 状态分别保留。'
+                    : questions.length ? '评审已完成，请在上方选择后续处理。' : '评审已完成，等待后续处理。',
+                  state.mrReview.noteUrl ? externalLink(state.mrReview.noteUrl, '查看完整评审意见') : null),
+                state.mrReview.findings?.length ? h('details', { className: 'adf__metadata' },
+                  h('summary', { className: 'adf__metadata-summary' }, `本轮评审发现 · ${state.mrReview.findings.length}`),
+                  h('ul', { className: 'adf__note-list' }, ...state.mrReview.findings.map((item, index) =>
+                    h('li', { className: 'adf__note', key: item.id || index },
+                      h('strong', null, `${item.id || `发现 ${index + 1}`} · ${item.severity || '未分级'}`),
+                      item.location ? h('div', { className: 'adf__label' }, item.location) : null,
+                      item.impact || item.evidence || item.recommendation
+                        ? h('div', { className: 'adf__label' }, [item.impact, item.evidence, item.recommendation].filter(Boolean).join(' · ')) : null
+                    )))
+                ) : null
+              ) : null
             ) :
               h('button', {
                 className: 'adf__button adf__button--primary',
@@ -791,7 +1019,60 @@ window.__ModuleLoader__.load({
               }, submittingReview ? '提交中…' : '提交 Review'),
             state?.qaSkipped && !state?.reviewSubmitted ? h('div', { className: 'adf__label' }, '独立验证已由用户中断，本次未验证；后续评审需保留此记录。') : null,
             !state?.reviewReady && !item.reviewSubmittedAt && !state?.reviewSubmitted
-              ? h('div', { className: 'adf__label' }, '等待开发与独立验证完成。') : null
+              ? h('div', { className: 'adf__label' }, state ? '等待开发与独立验证完成。' : '正在同步 Orca 状态…') : null
+          ) : null,
+          activeDetailTab === 'timeline' ? h('section', { className: 'adf__tab-pane adf__tab-pane--timeline adf__tab-card' },
+            h('h3', { className: 'adf__tab-title' }, `${t('notes')} · ${(selected.notes || []).length}`),
+            state?.taskTimings?.length ? h('details', { className: 'adf__metadata' },
+              h('summary', { className: 'adf__metadata-summary' }, `编排任务耗时 · ${state.taskTimings.length}`),
+              h('p', { className: 'adf__label' }, '从任务创建到完成，包含等待；并行任务时长不能直接相加，模型和节点耗时未单独计量。'),
+              h('ul', { className: 'adf__note-list' }, ...state.taskTimings.map(timing => h('li', { className: 'adf__note', key: timing.id },
+                h('strong', null, timing.title), ' · ', durationLabel(timing.durationMs),
+                h('div', { className: 'adf__label' }, `${timeLabel(timing.startedAt, currentLocale)} → ${timing.finishedAt ? timeLabel(timing.finishedAt, currentLocale) : '进行中'}`),
+                timing.gapMs ? h('div', { className: 'adf__label' }, `距上一任务完成 ${durationLabel(timing.gapMs)}，含等待`) : null
+              )))
+            ) : null,
+            (selected.notes || []).length === 0 ? h('div', { className: 'adf__tab-empty' }, t('noNotes')) :
+              h('ul', { className: 'adf__note-list' }, ...(selected.notes || []).map((note, index) => h('li', { className: 'adf__note', key: `${note.at}-${index}` },
+                h('time', { dateTime: note.at }, timeLabel(note.at, currentLocale)), note.text
+              ))),
+            h('div', { className: 'adf__note-compose' },
+              h('textarea', { className: 'adf__textarea', value: noteDraft, onChange: event => setNoteDraft(event.target.value), placeholder: t('notePlaceholder') }),
+              h('button', { className: 'adf__button', onClick: addNote, disabled: !noteDraft.trim() }, t('addNote'))
+            )
+          ) : null,
+          activeDetailTab === 'orca' ? h('section', { className: 'adf__tab-pane adf__tab-pane--orca adf__tab-card' },
+            h('h3', { className: 'adf__tab-title' }, '与 Orca 沟通'),
+            h('div', { className: 'adf__label' }, '说明要继续、返修或跳过的事项。跳过验证会记录为“未验证”。有执行中的 Worker 时，也可用同一条说明中断并继续。'),
+            h('div', { className: 'adf__orca-compose' },
+              h('textarea', {
+                className: 'adf__textarea', value: continueDraft, maxLength: 1000,
+                onChange: event => setContinueDraft(event.target.value),
+                placeholder: '例如：把返修清单交回原开发 Agent，修复后定向复测；或跳过剩余验证，标记未验证并继续。'
+              }),
+              h('div', { className: 'adf__orca-compose-actions' },
+                (orcaState?.activeWorkers || []).map(worker => h('button', {
+                  className: 'adf__button adf__button--danger', key: worker.dispatchId,
+                  onClick: () => interruptWorker(selected, worker),
+                  disabled: continuing || Boolean(interruptingDispatchId) || !continueDraft.trim()
+                }, interruptingDispatchId === worker.dispatchId ? '中断中…' : `中断 ${worker.taskTitle} 并继续`)),
+                h('button', {
+                  className: 'adf__button adf__button--primary', onClick: () => continueInOrca(selected),
+                  disabled: continuing || Boolean(interruptingDispatchId) || !continueDraft.trim() || !repoIdFor(selected) || !selected.worktree || !orcaState?.runId || !orcaState?.coordinatorTerminal || Boolean(orcaStateError)
+                }, continuing ? '发送中…' : '发送到 Orca')
+              )
+            ),
+            error?.startsWith('中断 Worker 失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null
+          ) : null,
+          activeDetailTab === 'runtime' ? h('section', { className: 'adf__tab-pane adf__tab-pane--runtime adf__tab-card' },
+            h('h3', { className: 'adf__tab-title' }, t('runtimeInfo')),
+            h('div', { className: 'adf__field-grid' },
+              field(t('bugId'), 'bugId'), field(t('workTitle'), 'title'), field(t('repository'), 'repository'),
+              field(t('pingcodeUrl'), 'pingcodeUrl', true, true), field(t('gitlabMrUrl'), 'gitlabMrUrl', true, true), field(t('branch'), 'branch', true),
+              field(t('runId'), 'runId'), field(t('taskId'), 'taskId'), field(t('dispatchId'), 'dispatchId'),
+              field(t('worktree'), 'worktree'), field(t('agent'), 'agent'), field(t('agentRole'), 'agentRole')
+            )
+          ) : null
           )
         )
       }
@@ -841,6 +1122,31 @@ window.__ModuleLoader__.load({
       }
 
       const stageLabel = stage => t(`stage_${stage}`)
+      function stagePhaseIndex(stage) {
+        if (['intake', 'requirements'].includes(stage)) return 0
+        if (['reproduction', 'reproSkipped', 'implementation'].includes(stage)) return 1
+        if (stage === 'tests') return 2
+        return 3
+      }
+      function phaseProgress(stage) {
+        const labels = ['需求分析', '开发实现', '独立验证', '提交与评审']
+        const active = stagePhaseIndex(stage)
+        const qa = orcaState?.qa
+        const qaAttention = !orcaState || !qa || qa.skipped || qa.unverified || qa.current === false
+          || qa.status !== 'completed' || !qa.crossValidated
+        const qaLabel = !orcaState ? '待同步' : qa?.skipped ? '已跳过' : qa?.status === 'failed' ? '未通过' : '未验证'
+        return h('div', { className: 'adf__phase-progress', role: 'list', 'aria-label': `当前流程阶段：${stageLabel(stage)}` },
+          h('span', { className: 'adf__phase-progress-title' }, '流程阶段'),
+          ...labels.flatMap((label, index) => [
+            h('div', {
+              key: `phase-${index}`, className: `adf__phase${index < active ? (index === 2 && qaAttention ? ' adf__phase--attention' : ' adf__phase--complete') : index === active ? ' adf__phase--active' : ''}`,
+              role: 'listitem', 'aria-current': index === active ? 'step' : undefined
+            }, h('span', { className: 'adf__phase-dot' }, index < active ? (index === 2 && qaAttention ? '!' : '✓') : index + 1),
+            index === 2 && index < active && qaAttention ? `${label} · ${qaLabel}` : label),
+            index < labels.length - 1 ? h('span', { key: `line-${index}`, className: `adf__phase-line${index < active ? ' adf__phase-line--complete' : ''}`, 'aria-hidden': true }) : null
+          ])
+        )
+      }
       return h('main', { className: 'adf' },
         h('div', { className: 'adf__inner' },
           h('header', { className: 'adf__header' },
@@ -1002,7 +1308,7 @@ window.__ModuleLoader__.load({
                 }, '×')
               ),
               h('div', { className: 'adf__flow-drawer-body' },
-                h('div', { className: 'adf__details' },
+                h('div', { className: 'adf__details', 'data-detail-tab': detailTab },
                   h('div', { className: 'adf__detail-head' },
                     h('div', null, h('div', { className: 'adf__label' }, selected.title)),
                     h('span', { className: 'adf__pill' }, selected.paused ? t('paused') : t(['completed', 'waiting', 'reviewed'].includes(selected.status) ? selected.status : 'active'))
@@ -1010,11 +1316,12 @@ window.__ModuleLoader__.load({
                   h('label', { className: 'adf__field', style: { marginTop: '11px' } },
                     h('span', { className: 'adf__label' }, t('currentStage')),
                     h('select', {
-                      className: 'adf__select', value: selected.stage || 'intake', disabled: progressSaving || !repoIdFor(selected) || !selected.worktree,
+                      className: 'adf__select', value: resolvedStage(selected, orcaState), disabled: progressSaving || !repoIdFor(selected) || !selected.worktree,
                       onChange: event => changeStage(selected, event.target.value)
                     }, ...stages.map(stage => h('option', { value: stage, key: stage }, stageLabel(stage)))
                     )
                   ),
+                  phaseProgress(resolvedStage(selected, orcaState)),
                   orcaLastRefreshedAt ? h('div', { className: 'adf__label', role: 'status' }, `Orca 状态最近同步：${timeLabel(orcaLastRefreshedAt, currentLocale)}`) : null,
                   orcaStateError ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, `刷新 Orca 状态失败：${orcaStateError}`) : null,
                   h('div', { className: 'adf__actions' },
@@ -1028,50 +1335,7 @@ window.__ModuleLoader__.load({
                       deletingFlowId === selected.id ? '删除中…' : t('deleteFlow')),
                     selected.gitlabMrUrl && externalLink(selected.gitlabMrUrl, t('openMr'))
                   ),
-                  h('details', { className: 'adf__metadata' },
-                    h('summary', { className: 'adf__metadata-summary' }, `${t('notes')} · ${(selected.notes || []).length}`),
-                    (selected.notes || []).length === 0 ? h('div', { className: 'adf__label' }, t('noNotes')) :
-                      h('ul', { className: 'adf__note-list' }, ...(selected.notes || []).map((note, index) => h('li', { className: 'adf__note', key: `${note.at}-${index}` },
-                        h('time', { dateTime: note.at }, timeLabel(note.at, currentLocale)), note.text
-                      ))),
-                    h('div', { className: 'adf__note-compose' },
-                      h('textarea', { className: 'adf__textarea', value: noteDraft, onChange: event => setNoteDraft(event.target.value), placeholder: t('notePlaceholder') }),
-                      h('button', { className: 'adf__button', onClick: addNote, disabled: !noteDraft.trim() }, t('addNote'))
-                    )
-                  ),
-                  h('section', { className: 'adf__notes' },
-                    h('h3', { className: 'adf__notes-title' }, '与 Orca 沟通'),
-                    h('div', { className: 'adf__label' }, '说明要继续、返修或跳过的事项。跳过验证会记录为“未验证”。有执行中的 Worker 时，也可用同一条说明中断并继续。'),
-                    h('div', { className: 'adf__orca-compose' },
-                      h('textarea', {
-                        className: 'adf__textarea', value: continueDraft, maxLength: 1000,
-                        onChange: event => setContinueDraft(event.target.value),
-                        placeholder: '例如：把返修清单交回原开发 Agent，修复后定向复测；或跳过剩余验证，标记未验证并继续。'
-                      }),
-                      h('div', { className: 'adf__orca-compose-actions' },
-                        (orcaState?.activeWorkers || []).map(worker => h('button', {
-                          className: 'adf__button adf__button--danger', key: worker.dispatchId,
-                          onClick: () => interruptWorker(selected, worker),
-                          disabled: continuing || Boolean(interruptingDispatchId) || !continueDraft.trim()
-                        }, interruptingDispatchId === worker.dispatchId ? '中断中…' : `中断 ${worker.taskTitle} 并继续`)),
-                        h('button', {
-                          className: 'adf__button adf__button--primary', onClick: () => continueInOrca(selected),
-                          disabled: continuing || Boolean(interruptingDispatchId) || !continueDraft.trim() || !repoIdFor(selected) || !selected.worktree || !orcaState?.runId || !orcaState?.coordinatorTerminal || Boolean(orcaStateError)
-                        }, continuing ? '发送中…' : '发送到 Orca')
-                      )
-                    ),
-                    error?.startsWith('中断 Worker 失败') ? h('div', { className: 'adf__notice adf__error', role: 'alert' }, error) : null
-                  ),
                   flowQuestionsAndReview(selected),
-                  h('details', { className: 'adf__metadata' },
-                    h('summary', { className: 'adf__metadata-summary' }, t('runtimeInfo')),
-                    h('div', { className: 'adf__field-grid' },
-                      field(t('bugId'), 'bugId'), field(t('workTitle'), 'title'), field(t('repository'), 'repository'),
-                      field(t('pingcodeUrl'), 'pingcodeUrl', true, true), field(t('gitlabMrUrl'), 'gitlabMrUrl', true, true), field(t('branch'), 'branch', true),
-                      field(t('runId'), 'runId'), field(t('taskId'), 'taskId'), field(t('dispatchId'), 'dispatchId'),
-                      field(t('worktree'), 'worktree'), field(t('agent'), 'agent'), field(t('agentRole'), 'agentRole')
-                    )
-                  )
                 )
               )
             )

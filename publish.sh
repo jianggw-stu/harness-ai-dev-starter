@@ -23,8 +23,11 @@ echo -e "本次提交说明: ${YELLOW}${COMMIT_MSG}${NC}\n"
 # 1. 自动同步本地最新开发的 Skills
 echo -e "${YELLOW}[1/6] 检查并同步本地最新开发的技能包...${NC}"
 LOCAL_LIFECYCLE_SRC="$HOME/.agents/skills/dev-lifecycle"
+if [ ! -d "$LOCAL_LIFECYCLE_SRC" ] && [ -d "$HOME/.agents/skills/insuranceagent-dev-lifecycle" ]; then
+    LOCAL_LIFECYCLE_SRC="$HOME/.agents/skills/insuranceagent-dev-lifecycle"
+fi
 if [ -d "$LOCAL_LIFECYCLE_SRC" ]; then
-    echo -e "  🔄 正在从本地技能目录同步最新 lifecycle..."
+    echo -e "  🔄 正在从本地技能目录同步最新 lifecycle (${LOCAL_LIFECYCLE_SRC})..."
     rm -rf "$PROJECT_ROOT/skills/dev-lifecycle"
     cp -r "$LOCAL_LIFECYCLE_SRC" "$PROJECT_ROOT/skills/dev-lifecycle"
     echo -e "  ${GREEN}✔ Skills 源码已抓取完毕${NC}"

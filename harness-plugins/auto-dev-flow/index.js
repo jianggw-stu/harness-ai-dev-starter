@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync } from 'node:fs'
-import { readFile, realpath } from 'node:fs/promises'
+import { mkdir, readFile, realpath, rename, stat, writeFile } from 'node:fs/promises'
 import { resolve, relative, isAbsolute } from 'node:path'
 import { promisify } from 'node:util'
 import os from 'node:os'
@@ -103,6 +103,11 @@ function skipsQaForReview(value) {
   return skip && next
 }
 
+function isQaStopDecision(question, answer) {
+  return /\bQA\b|测试|复测|验证/i.test(String(question || ''))
+    && /^(?:停止|跳过|终止|取消|不再运行|不再执行|不再测试)/.test(String(answer || '').trim())
+}
+
 async function persistQaSkip({ bugId, worktree, state, reason, alreadyStopped = false }) {
   const qaWorker = alreadyStopped ? null : state.activeWorkers?.find(worker => worker.dispatchId === state.qa?.dispatchId)
   let stopped = false
@@ -116,7 +121,7 @@ async function persistQaSkip({ bugId, worktree, state, reason, alreadyStopped = 
       '--result', `Harness 用户跳过验证：${reason}；本次未验证`, '--run', state.runId, '--from', state.coordinatorTerminal])
     stopped = true
   }
-  const comment = `PingCode ${bugId} · 当前阶段：提交 MR · 独立验证：用户跳过，未验证`
+  const comment = `PingCode ${bugId} · 当前阶段：待提交 Review · 独立验证：用户跳过，未验证 · QA跳过范围：${state.runId}/${state.implementationTaskId || '-'}`
   await orcaJson(['worktree', 'set', '--worktree', `path:${worktree}`, '--comment', comment, '--workspace-status', 'in-review'])
   return { stopped, comment }
 }
@@ -137,14 +142,64 @@ function messagesFromCheck(result) {
   })
 }
 
-async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal, qaSkipPersisted = false }) {
+async function loadRequirementsReport(worktree, bugId, reportPath, taskId = '') {
+  if (!reportPath) throw new Error('需求评审页路径缺失，请分析 Worker 回传 HTML reportPath。')
+  const root = await realpath(worktree)
+  const path = reportPath.startsWith('file://') ? fileURLToPath(reportPath) : reportPath
+  const candidate = resolve(root, path)
+  const scratchRoot = /^task_[\w-]+$/.test(taskId) ? resolve(os.tmpdir(), `orca-${taskId}`) : ''
+  const scratchRelative = scratchRoot ? relative(scratchRoot, candidate) : ''
+  const inTaskScratch = scratchRelative && !scratchRelative.startsWith('..') && !isAbsolute(scratchRelative)
+  const storedReport = resolve(root, '.harness-dist', bugId, `${taskId}.html`)
+  let file
+  let temporary = false
+  try {
+    file = await realpath(candidate)
+    if (inTaskScratch) {
+      const actualScratch = await realpath(scratchRoot)
+      const withinScratch = relative(actualScratch, file)
+      temporary = actualScratch === resolve(await realpath(os.tmpdir()), `orca-${taskId}`)
+        && withinScratch && !withinScratch.startsWith('..') && !isAbsolute(withinScratch)
+    }
+  } catch (error) {
+    if (error.code !== 'ENOENT' || !inTaskScratch) throw error
+    // Worker 临时目录被回收后，继续使用已交接到当前工作区的页面。
+    file = await realpath(storedReport)
+  }
+  const inside = relative(root, file)
+  const pageName = relative(resolve(os.homedir(), '.answer-me-with-html/pages'), file)
+  const inWorktree = inside && !inside.startsWith('..') && !isAbsolute(inside)
+  const skillPage = pageName && !pageName.startsWith('..') && !isAbsolute(pageName)
+    && !pageName.includes('/') && pageName.startsWith(`${bugId}-`)
+  if ((!inWorktree && !skillPage && !temporary) || !/\.html?$/i.test(file) || !(await stat(file)).isFile()) {
+    throw new Error('需求评审页路径无效，必须是当前任务可访问的 HTML 文件。')
+  }
+  const html = await readFile(file, 'utf8')
+  if (temporary) {
+    const directory = resolve(root, '.harness-dist', bugId)
+    await mkdir(directory, { recursive: true })
+    const actualDirectory = await realpath(directory)
+    const withinWorktree = relative(root, actualDirectory)
+    if (!withinWorktree || withinWorktree.startsWith('..') || isAbsolute(withinWorktree)) {
+      throw new Error('需求评审页存储目录不属于当前任务工作区。')
+    }
+    file = resolve(actualDirectory, `${taskId}.html`)
+    const staging = `${file}.${randomUUID()}.tmp`
+    await writeFile(staging, html, { flag: 'wx' })
+    await rename(staging, file)
+  }
+  return { file, html }
+}
+
+async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal, qaSkipPersisted = false, worktreeState }) {
   let terminal = String(coordinatorTerminal || '').trim()
   const [runList, terminalResult, worktreeResult] = await Promise.all([
     orcaJson(['orchestration', 'run-list']),
     worktree ? orcaJson(['terminal', 'list', '--worktree', `path:${worktree}`]) : Promise.resolve({ terminals: [] }),
-    worktree ? orcaJson(['worktree', 'show', '--worktree', `path:${worktree}`]) : Promise.resolve({ worktree: {} })
+    worktreeState ? Promise.resolve(worktreeState) : worktree ? orcaJson(['worktree', 'show', '--worktree', `path:${worktree}`]) : Promise.resolve({ worktree: {} })
   ])
-  qaSkipPersisted ||= /独立验证：用户跳过，未验证/.test(String(worktreeResult.worktree?.comment || ''))
+  const worktreeComment = String(worktreeResult.worktree?.comment || '')
+  qaSkipPersisted ||= /独立验证：用户跳过，未验证/.test(worktreeComment)
   const runs = runList.runs || []
   const handles = (terminalResult.terminals || []).map(item => item.handle).filter(Boolean)
   const hasTerminal = Boolean(terminal) || handles.length > 0
@@ -202,38 +257,75 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
   const currentTask = [...tasks].reverse().find(item => activeWorkers.some(worker => worker.taskId === item.id))
     || [...tasks].reverse().find(item => !['pending', 'ready'].includes(item.status))
   const currentTitle = `${currentTask?.task_title || ''} ${currentTask?.display_name || ''}`
-  let stage = /提交.*评审|MR.*评审/i.test(currentTitle) ? 'mrReview'
+  let stage = /提交.*(?:评审|复审)|MR.*(?:评审|复审)/i.test(currentTitle) ? 'mrReview'
     : /代码.*Review|代码评审|code review|提交 MR/i.test(currentTitle) ? 'mrPreparation'
-    : /测试|验收|QA|质量评审/i.test(currentTitle) ? 'tests'
-      : /开发|实现|修复/i.test(currentTitle) ? 'implementation' : 'requirements'
+    : /测试|验收|QA|独立验证|定向验证|定向复测|质量评审/i.test(currentTitle) ? 'tests'
+      : /开发|实现|修复|返修/i.test(currentTitle) ? 'implementation' : 'requirements'
   const analysisTask = [...analysisTasks].reverse().find(task => task.status !== 'failed'
     && workers.some(worker => (worker.taskId || worker.task_id) === task.id))
     || [...analysisTasks].reverse().find(task => task.status !== 'failed')
     || analysisTasks.at(-1)
   const analysisWorker = analysisTask && workers.find(item => (item.taskId || item.task_id) === analysisTask.id)
-  const completedWorker = (pattern, exclude) => [...tasks].reverse().some(task => pattern.test(`${task.task_title || ''} ${task.display_name || ''}`)
-    && (!exclude || !exclude.test(`${task.task_title || ''} ${task.display_name || ''}`))
-    && task.status === 'completed' && workers.some(worker => (worker.taskId || worker.task_id) === task.id
-      && worker.projection?.outcome === 'succeeded'))
-  const qaTask = [...tasks].reverse().find(task => /独立 QA|独立验证|QA.*验收|定向复测|质量评审/i.test(`${task.task_title || ''} ${task.display_name || ''}`))
+  const qaTask = [...tasks].reverse().find(task => workers.some(worker => (worker.taskId || worker.task_id) === task.id)
+    && /独立\s*QA|独立验证|QA.*验收|定向\s*(?:QA|验证|复测)|质量评审/i.test(
+      `${task.task_title || ''} ${task.display_name || ''} ${String(task.spec || '').split(/\r?\n|\\n/)[0]}`))
   const qaWorker = qaTask && workers.find(worker => (worker.taskId || worker.task_id) === qaTask.id)
   const qaDispatchId = qaWorker?.dispatchId || qaWorker?.dispatch_id || ''
   const qaMessages = qaTask ? messages.filter(item => {
     const messageTaskId = item.payload.taskId || item.taskId || item.task_id || ''
     const messageDispatchId = item.payload.dispatchId || item.dispatchId || item.dispatch_id || ''
-    return messageTaskId === qaTask.id || Boolean(qaDispatchId && messageDispatchId === qaDispatchId)
+    return messageTaskId === qaTask.id && (!qaDispatchId || messageDispatchId === qaDispatchId)
   }) : []
   const qaDone = [...qaMessages].reverse().find(item => item.type === 'worker_done')
   let savedQa = null
   try { savedQa = JSON.parse(qaTask?.result || 'null') } catch {}
-  const qaSkipped = qaSkipPersisted || Boolean(qaTask && qaTask.status === 'failed'
-    && /Harness 用户(?:中断(?:验证)?|取消验证|跳过验证)：/.test(String(qaTask.result || '')))
+  if (!['completed', 'failed'].includes(qaTask?.status)
+    || (savedQa?.dispatchId && savedQa.dispatchId !== qaDispatchId)) savedQa = null
+  const implementationTask = [...tasks].reverse().find(task => /开发|实现|修复|返修/i.test(`${task.task_title || ''} ${task.display_name || ''}`)
+    && !/清理|回滚|撤销|独立\s*QA|独立验证|定向\s*(?:QA|验证|复测)|质量评审|需求分析|需求评审|决策|代码评审/i.test(`${task.task_title || ''} ${task.display_name || ''}`))
+  const implementationWorker = implementationTask && workers.find(worker => (worker.taskId || worker.task_id) === implementationTask.id)
+  const implementationSucceeded = implementationTask?.status === 'completed' && implementationWorker?.projection?.outcome === 'succeeded'
+  const implementationIndex = tasks.indexOf(implementationTask)
+  let qaDependencies = []
+  try { qaDependencies = JSON.parse(qaTask?.deps || '[]') } catch {}
+  const qaCurrent = Boolean(qaTask && (!implementationTask || tasks.indexOf(qaTask) > implementationIndex
+    || (Array.isArray(qaDependencies) && qaDependencies.includes(implementationTask.id))))
+  const isSkipResult = task => /Harness 用户(?:中断(?:验证)?|取消验证|跳过验证)：/.test(String(task?.result || ''))
+  const stopGates = gates.filter(gate => gate.status === 'resolved' && isQaStopDecision(gate.question, gate.resolution))
+  const lastStopIndex = Math.max(-1, ...tasks.map((task, index) =>
+    isSkipResult(task) || stopGates.some(gate => (gate.task_id || gate.taskId) === task.id) ? index : -1))
+  const skipScope = worktreeComment.match(/QA跳过范围：([\w-]+)\/([\w-]+)/)
+  const skipInCurrentIteration = skipScope
+    ? skipScope[1] === run.id && skipScope[2] === (implementationTask?.id || '-')
+    : lastStopIndex < 0 || implementationIndex <= lastStopIndex
+  const stoppedByGate = stopGates.some(gate => {
+    const index = tasks.findIndex(task => task.id === (gate.task_id || gate.taskId))
+    return (index < 0 || index >= implementationIndex)
+      && (!qaTask?.created_at || !gate.resolved_at || gate.resolved_at >= qaTask.created_at)
+  })
+  const qaSkipped = (qaSkipPersisted && skipInCurrentIteration) || stoppedByGate
+    || Boolean(qaCurrent && qaTask.status === 'failed' && isSkipResult(qaTask))
   if (qaSkipped && stage === 'tests') stage = 'mrPreparation'
-  const implementationTask = [...tasks].reverse().find(task => /开发|实现|修复/i.test(`${task.task_title || ''} ${task.display_name || ''}`)
-    && !/清理|回滚|撤销/i.test(`${task.task_title || ''} ${task.display_name || ''}`) && task.status === 'completed'
-    && workers.some(worker => (worker.taskId || worker.task_id) === task.id && worker.projection?.outcome === 'succeeded'))
-  const implementationWorker = implementationTask && workers.find(worker => (worker.taskId || worker.task_id) === implementationTask.id
-    && worker.projection?.outcome === 'succeeded')
+  const dependencyNotes = new Map()
+  let dependenciesReported = false
+  for (const [task, worker] of [[implementationTask, implementationWorker], [qaTask, qaWorker]]) {
+    if (!task) continue
+    let saved = null
+    try { saved = JSON.parse(task.result || 'null') } catch {}
+    if (saved?.dispatchId && saved.dispatchId !== (worker?.dispatchId || worker?.dispatch_id)) saved = null
+    const done = [...messages].reverse().find(message => message.type === 'worker_done'
+      && (message.payload.taskId || message.taskId || message.task_id) === task.id
+      && (!message.payload.dispatchId || message.payload.dispatchId === (worker?.dispatchId || worker?.dispatch_id)))
+    const notes = Array.isArray(done?.payload?.dependencyNotes) ? done.payload.dependencyNotes : saved?.dependencyNotes
+    if (!Array.isArray(notes)) continue
+    dependenciesReported = true
+    for (const note of notes.slice(0, 50)) {
+      if (!note || typeof note !== 'object') continue
+      const entry = Object.fromEntries(['caller', 'callee', 'purpose', 'verification', 'impact']
+        .map(key => [key, typeof note[key] === 'string' ? note[key].slice(0, 1500) : '']))
+      if (entry.caller && entry.callee) dependencyNotes.set(JSON.stringify([entry.caller, entry.callee]), entry)
+    }
+  }
   const plannedCases = [...String(implementationTask?.spec || '').matchAll(/^\s*(A\d+)[:：]\s*(.+)$/gm)]
     .map(([, id, title]) => ({ id, title }))
   // 已释放终端不再有实时 provider；使用该 Dispatch 的持久 launch.effective 恢复身份。
@@ -241,24 +333,43 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
     if (!worker || (worker.projection?.provider?.model && worker.projection?.provider?.effort)) return worker?.projection?.provider
     const details = await orcaJson(['orchestration', 'worker-show', '--dispatch', worker.dispatchId])
     const effective = details.worker?.startOptions?.launch?.effective
-    return effective ? { id: effective.agent, model: effective.model, effort: effective.effort } : worker.projection?.provider
+    const observed = worker.projection?.provider || {}
+    return effective ? { id: effective.agent || observed.id, model: effective.model || observed.model,
+      effort: effective.effort || observed.effort } : observed
   }))
   const [qaProvider, implementationProvider] = providers
   const qaModel = String(qaProvider?.model || '').toLowerCase()
+  let implementationAgent = String(implementationProvider?.id || '').toLowerCase()
   let implementationModel = String(implementationProvider?.model || '').toLowerCase()
-  if (!implementationModel && implementationProvider?.id === 'grok' && implementationWorker?.agentTerminalHandle) {
+  if (implementationWorker?.agentTerminalHandle
+    && (!implementationAgent || ['terminal', 'unknown'].includes(implementationAgent)
+      || (implementationAgent === 'grok' && !implementationModel))) {
     try {
       const terminal = await orcaJson(['terminal', 'show', '--terminal', implementationWorker.agentTerminalHandle])
-      if (/\bgrok\s+4\.7\b/i.test(terminal.terminal?.preview || '')) implementationModel = 'grok-4.7'
+      const preview = terminal.terminal?.preview || ''
+      if ((!implementationAgent || ['terminal', 'unknown'].includes(implementationAgent))
+        && /Command Code v\d/i.test(preview)) {
+        implementationAgent = 'cmd'
+        implementationModel ||= preview.match(/models:\s*([^\n·]+)/i)?.[1]?.trim().toLowerCase() || ''
+      } else if (!implementationModel && implementationAgent === 'grok' && /\bgrok\s+4\.7\b/i.test(preview)) {
+        implementationModel = 'grok-4.7'
+      }
     } catch {}
   }
-  const grokLunaPair = (qaModel.includes('gpt-6-luna') && qaProvider?.effort === 'high'
-    && implementationModel.includes('grok-4.7') && implementationProvider?.effort === 'medium')
-    || (qaModel.includes('grok-4.7') && qaProvider?.effort === 'medium'
-      && implementationModel.includes('gpt-6-luna') && implementationProvider?.effort === 'high')
-  const qaCrossValidated = Boolean(implementationWorker && qaTask?.status === 'completed'
-    && qaWorker?.projection?.outcome === 'succeeded' && qaProvider?.id && implementationProvider?.id
-    && qaProvider.id !== implementationProvider.id && grokLunaPair)
+  const plannedEffort = task => String(task?.spec || '').match(/\bplanned_effort\s*[:=]\s*(low|medium|high|xhigh|max|ultra)\b/i)?.[1]?.toLowerCase() || ''
+  const qaPlannedEffort = plannedEffort(qaTask)
+  const implementationPlannedEffort = plannedEffort(implementationTask)
+  const qaEffort = String(qaProvider?.effort || '').toLowerCase()
+  const implementationEffort = String(implementationProvider?.effort || '').toLowerCase()
+  const effortMismatch = Boolean((qaEffort && qaPlannedEffort && qaEffort !== qaPlannedEffort)
+    || (implementationEffort && implementationPlannedEffort && implementationEffort !== implementationPlannedEffort))
+  const grokLunaPair = (qaModel.includes('gpt-6-luna') && implementationModel.includes('grok-4.7'))
+    || (qaModel.includes('grok-4.7') && implementationModel.includes('gpt-6-luna'))
+  const commandCodeCodexPair = qaModel.includes('gpt-6-luna')
+    && ['cmd', 'command-code'].includes(implementationAgent)
+  const qaCrossValidated = Boolean(qaCurrent && implementationSucceeded && qaTask?.status === 'completed'
+    && qaWorker?.projection?.outcome === 'succeeded' && qaProvider?.id && implementationAgent
+    && qaProvider.id !== implementationAgent && (grokLunaPair || commandCodeCodexPair))
   const qa = qaTask ? {
     taskId: qaTask.id,
     dispatchId: qaDispatchId,
@@ -266,14 +377,23 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
     status: qaTask.status || qaWorker?.projection?.outcome || 'unknown',
     outcome: qaWorker?.projection?.outcome || '',
     model: qaProvider?.model || '',
+    effort: qaEffort,
+    plannedEffort: qaPlannedEffort,
     implementationModel,
+    implementationEffort,
+    implementationPlannedEffort,
+    effortMismatch,
     result: String(qaDone?.body || qaDone?.payload?.body || savedQa?.body || qaDone?.payload?.result || qaTask.result || '').slice(0, 12000),
     testCases: Array.isArray(qaDone?.payload?.testCases) ? qaDone.payload.testCases
       : Array.isArray(savedQa?.testCases) ? savedQa.testCases : [],
-    modelMismatch: Boolean(qaProvider?.model && implementationProvider?.model && !grokLunaPair),
+    excludedTestCaseIds: Array.isArray(qaDone?.payload?.excludedTestCaseIds) ? qaDone.payload.excludedTestCaseIds
+      : Array.isArray(savedQa?.excludedTestCaseIds) ? savedQa.excludedTestCaseIds : [],
+    current: qaCurrent,
+    modelMismatch: Boolean(qaProvider?.model && implementationProvider?.model && !(grokLunaPair || commandCodeCodexPair)),
     crossValidated: qaCrossValidated,
     skipped: qaSkipped
-  } : null
+  } : qaSkipped ? { status: 'skipped', outcome: 'skipped', skipped: true, unverified: true,
+    crossValidated: false, testCases: [], excludedTestCaseIds: [], result: '用户已跳过剩余验证，本轮未验证。' } : null
   const analysisDispatchId = analysisWorker?.dispatchId || analysisWorker?.dispatch_id || ''
   const analysisMessages = analysisTask ? messages.filter(item => {
     const messageTaskId = item.payload.taskId || item.taskId || item.task_id || ''
@@ -284,7 +404,7 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
   let savedReview = null
   try { savedReview = JSON.parse(analysisTask?.result || 'null') } catch {}
   if (savedReview?.outcome === 'failed') savedReview = null
-  const reviewSource = reviewMessage || (analysisTask?.status === 'completed' && savedReview?.reportPath ? { ...savedReview, payload: savedReview } : null)
+  const reviewSource = reviewMessage || (analysisTask?.status === 'completed' && savedReview ? { ...savedReview, payload: savedReview } : null)
   const review = reviewSource ? {
     id: reviewSource.id || savedReview?.messageId || '',
     subject: reviewSource.subject || '',
@@ -297,15 +417,50 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
     taskId: analysisTask?.id || reviewSource.payload.taskId || '',
     dispatchId: analysisDispatchId || reviewSource.payload.dispatchId || ''
   } : null
+  if (review) {
+    review.reportError = ''
+    review.reportPath ||= String(review.body).match(/\breportPath\s*[:：]\s*[`"']?([^`"'\r\n;；]+?\.html?)(?=[`"'\s;；]|$)/i)?.[1]?.trim() || ''
+    try {
+      const report = await loadRequirementsReport(worktree, bugId, review.reportPath, review.taskId)
+      review.reportPath = report.file
+      if (!review.testCases.length) {
+        // shortcut: 只恢复 am-source 中编号/场景/预期三列表，复杂格式仍须回传结构化 testCases。
+        const source = report.html.match(/<textarea\b(?=[^>]*\bid=["']am-source["'])[^>]*>([\s\S]*?)<\/textarea>/i)?.[1] || ''
+        const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'" }
+        const markdown = source.replace(/&(amp|lt|gt|quot|apos|#39);/g, (_, entity) => entities[entity])
+        review.testCases = [...markdown.matchAll(/^\|\s*((?:TC-?|T|A)\d+)\s*\|\s*([^|\r\n]+?)\s*\|\s*([^|\r\n]+?)\s*\|\s*$/gm)]
+          .map(([, id, title, expected]) => ({ id, title: title.trim(), expected: expected.trim() }))
+      }
+      if (!review.testCases.length || review.testCases.some(item => !item.id || !item.title || !item.expected)) {
+        review.reportError = '需求评审缺少完整编号测试用例，请分析 Worker 补齐场景和预期后再确认。'
+      }
+    } catch (error) {
+      review.reportPath = ''
+      review.reportError = error.code === 'ENOENT' ? '需求评审页文件不存在，请分析 Worker 生成页面后重新回传。' : error.message
+    }
+  }
   if (qa) {
     const expectedCases = review?.testCases || []
-    qa.unverified = qaSkipped || !qaProvider?.model || !qaProvider?.effort
-      || !implementationModel || !implementationProvider?.effort || !expectedCases.length || expectedCases.some(expected => {
-      const actual = qa.testCases.find(item => item.id === expected.id)
-      return !actual || ['not_run', 'skipped', 'blocked'].includes(actual.status)
-    })
-    qa.crossValidated = qaCrossValidated && expectedCases.length > 0 && expectedCases.every(expected =>
-      qa.testCases.some(actual => actual.id === expected.id && actual.status === 'passed' && actual.evidence))
+    const reportedCases = qa.testCases
+    const excludedIds = qa.excludedTestCaseIds
+    const hasEvidence = item => Boolean(String(item?.evidence || '').trim())
+    const validStatuses = ['passed', 'failed', 'partial', 'not_applicable', 'skipped', 'blocked', 'not_run']
+    const inScopePassed = reportedCases.some(item => item.status === 'passed' && hasEvidence(item))
+    const accountedIds = new Set([...reportedCases.map(item => item.id), ...excludedIds])
+    const invalidExcludedIds = excludedIds.some(id => !expectedCases.some(expected => expected.id === id)
+      || reportedCases.some(item => item.id === id))
+    qa.unverified = qaSkipped || !qaCurrent || !qaProvider?.model
+      || !implementationModel || !expectedCases.length || !reportedCases.length
+      || invalidExcludedIds || expectedCases.some(expected => !accountedIds.has(expected.id))
+      || reportedCases.some(item => !expectedCases.some(expected => expected.id === item.id)
+        || !validStatuses.includes(item.status)
+        || ['partial', 'skipped', 'blocked', 'not_run'].includes(item.status)
+        || (['passed', 'not_applicable'].includes(item.status) && !hasEvidence(item)))
+    qa.crossValidated = !qaSkipped && qaCrossValidated && inScopePassed && reportedCases.length > 0
+      && !invalidExcludedIds && expectedCases.every(expected => accountedIds.has(expected.id))
+      && reportedCases.every(item => expectedCases.some(expected => expected.id === item.id)
+        && ((item.status === 'passed' && hasEvidence(item))
+          || (item.status === 'not_applicable' && hasEvidence(item))))
   }
   const questions = messages.filter(item => {
     if (item.type !== 'question') return false
@@ -327,7 +482,7 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
     questions.push({ id: gate.id, kind: 'gate', subject: '待确认决定', question: gate.question,
       options: Array.isArray(options) ? options : [], taskId: gate.task_id || gate.taskId || '', dispatchId: '' })
   }
-  const mrTask = [...tasks].reverse().find(task => /(?:GitLab|远程|独立).*MR.*评审|MR.*评审.*回写/i.test(`${task.task_title || ''} ${task.display_name || ''}`)
+  const mrTask = [...tasks].reverse().find(task => /(?:GitLab|远程|独立).*MR.*(?:评审|复审)|MR.*(?:评审|复审)/i.test(`${task.task_title || ''} ${task.display_name || ''}`)
     && workers.some(worker => (worker.taskId || worker.task_id) === task.id))
   let savedMr = {}
   try { savedMr = JSON.parse(mrTask?.result || '{}') } catch {}
@@ -339,6 +494,7 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
       && Boolean(mrPayload.noteUrl),
     noteUrl: mrPayload.noteUrl || '', blocking: mrPayload.blocking ?? null,
     severity: mrPayload.severity || {}, finding: mrPayload.finding || '',
+    findings: Array.isArray(mrPayload.findings) ? mrPayload.findings : [],
     draft: mrPayload.mr?.draft ?? null,
     summary: mrDone?.body || mrPayload.body || ''
   } : null
@@ -358,6 +514,30 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
     && !unsettledTasks.length
     && (gates.some(gate => gate.status === 'resolved' && /结束(?:本轮)?流程验证/.test(gate.resolution || ''))
       || tasks.some(task => task.status === 'completed' && /结束(?:本轮)?流程验证/.test(task.result || '')))
+  const utcTimestamp = value => {
+    const text = String(value || '').trim()
+    if (!text) return ''
+    const iso = /^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)?$/.test(text) ? `${text.replace(' ', 'T')}Z` : text
+    const time = Date.parse(iso)
+    return Number.isFinite(time) ? new Date(time).toISOString() : ''
+  }
+  const taskTimings = tasks.filter(task => !['pending', 'ready'].includes(task.status)
+    || (task.completed_at && workers.some(worker => (worker.taskId || worker.task_id) === task.id))).flatMap(task => {
+    const startedAt = utcTimestamp(task.created_at)
+    const finishedAt = utcTimestamp(task.completed_at)
+    if (!startedAt) return []
+    const durationMs = finishedAt ? Date.parse(finishedAt) - Date.parse(startedAt) : null
+    return [{ id: task.id, title: task.display_name || task.task_title || task.id, status: task.status,
+      startedAt, finishedAt, durationMs: durationMs != null && durationMs >= 0 ? durationMs : null }]
+  }).sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt))
+  for (let i = 1; i < taskTimings.length; i++) {
+    const priorEnds = taskTimings.slice(0, i).map(task => Date.parse(task.finishedAt))
+    const currentStart = Date.parse(taskTimings[i].startedAt)
+    if (priorEnds.every(Number.isFinite)) {
+      const previousEnd = Math.max(...priorEnds)
+      if (currentStart > previousEnd) taskTimings[i].gapMs = currentStart - previousEnd
+    }
+  }
   return {
     runId: run.id,
     coordinatorTerminal: terminal,
@@ -372,10 +552,14 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
     flowStatus: questions.length ? 'waiting' : flowEnded ? 'completed' : mrReview?.completed && mrReview.current
       && !activeWorkers.length && !unsettledTasks.some(task => ['pending', 'ready', 'dispatched'].includes(task.status)) ? 'reviewed' : 'active',
     mrReview,
-    reviewReady: completedWorker(/开发|实现|修复/i, /清理|回滚|撤销/i) && (qa?.crossValidated || qaSkipped)
+    reviewReady: implementationSucceeded && (qa?.crossValidated || qaSkipped)
       && !tasks.some(task => task.status === 'dispatched'),
     qaSkipped,
     qa,
+    implementation: implementationTask ? { status: implementationTask.status, succeeded: implementationSucceeded } : null,
+    implementationTaskId: implementationTask?.id || '',
+    taskTimings,
+    dependencyNotes: dependenciesReported ? [...dependencyNotes.values()] : null,
     questions,
     questionIds: messages.filter(item => item.type === 'question').map(item => item.id),
     review,
@@ -384,7 +568,7 @@ async function flowRuntime({ bugId, repoId, worktree, runId, coordinatorTerminal
   }
 }
 
-function lifecyclePrompt(bugId, title, typeName, workItem, developerInstructions, projectRoot) {
+export function lifecyclePrompt(bugId, title, typeName, workItem, developerInstructions, projectRoot) {
   const safeTitle = String(title || '').replace(/["\\\n\r]/g, ' ').slice(0, 300)
   const safeType = String(typeName || '未提供').replace(/["\\\n\r]/g, ' ').slice(0, 80)
   const issueSnapshot = JSON.stringify({
@@ -407,16 +591,17 @@ function lifecyclePrompt(bugId, title, typeName, workItem, developerInstructions
 ${issueSnapshot}
 </work-item-snapshot>
 
-1. 第一阶段创建本工单 Run 和独立需求分析 Task，用 worker-start --agent codex --model gpt-6-luna --effort high 派发。需求 Worker 先加载 $grill-me 和 $answer-me-with-html，只做业务分析、不查源码或 Schema。业务歧义通过 Orca ask 逐题送回 Harness；有限选择提供 2–5 个简短 --options。coordinator 不代答。
+0. 推理强度由协调模型结合各阶段执行模型的能力与任务实际复杂度共同判断，依据范围、风险、不确定性和新增证据自主选择和调整，不按阶段固定档位；用户明确指定优先。可参考普通任务 medium、简单明确任务 low、复杂或高风险任务 high，但不得机械套用；模型支持其他档位时可合理选择。每个新 Task 的 spec 记录 planned_effort=<选定值> 和简短原因；无法确定则记录 planned_effort=unknown。派发前通过 Agent 实际支持的参数或界面设置并核对，实际无法核验就记录未知；模型执行中合理调整时记录原因和实际值，不重跑已完成工作。计划与实际不一致或未知仅作展示，不自动否定有证据支持的业务验证。不得静默替换模型。
+1. 第一阶段创建本工单 Run 和独立需求分析 Task，用 worker-start --agent codex --model gpt-6-luna --effort <该阶段已选强度> 派发；强度由流程结合任务和执行模型判断。需求 Worker 先加载 $grill-me 和 $answer-me-with-html，只做业务分析、不查源码或 Schema。业务歧义通过 Orca ask 逐题送回 Harness；有限选择提供 2–5 个简短 --options，并把唯一推荐项直接标为“（推荐）”写进对应选项文本，不能只在问题正文或分析里说明推荐。用户答复明确时直接记录并继续，不重复复述让用户确认；仅答案含糊或冲突时追问。确有帮助时可提出 1–3 个可选代码定位线索问题，包含“不知道，由模型自行查找”，只将答案作为开发阶段参考，不阻挡流程或在需求阶段查源码。coordinator 不代答。
 2. 任意阶段需要人决策，必须创建当前 Run 的 ask 或决策 Gate，写清原因、推荐项和替代项；Harness 读取持久问题和 Gate，不得只在终端说“等待用户”。答复后回读确认，再恢复后续工作。不能把已读取/ack 当作已答复。
-3. 需求 Worker 返回 HTML reportPath 和 testCases 数组（每项 id/title/expected）。评审页包含编号用例的场景、操作、预期；验收覆盖本次业务行为，不新增真实中间件连通性或模型效果的必测用例。Harness 同源展示，禁止 file://。唯一需求确认门是 Harness“确认需求并继续”，不另弹确认框。收到后才派开发。用例只放评审页，不在 Harness 摘要重复铺开。
-4. 开发和独立 QA 使用 Grok grok-4.7 medium 与 Codex gpt-6-luna high 交叉配对；核对实际模型，禁止降级到 Grok 4.6 或其他模型。先复用本 Run、精确 worktree、角色和模型匹配的空闲终端。无终端时自行启动，Codex 用 worker-start --agent codex --model gpt-6-luna --effort high；Grok 用 agent launch --agent grok --surface terminal --worktree path:<精确路径>，启动时不传 --model/--effort。默认模型不符先在该会话执行 /model grok-4.7 并核验 medium，再用 worker-start --terminal 纳入本 Run。用户要求复用窗口，阶段结算后用 worker-retain 保留，后续用新 Dispatch 复用；不要 release 后再新开。切换或启动失败时同步 Harness 决策，不要求用户手工开窗口。
-5. 每个开发/QA Task 附已确认范围卡和相同验收编号；先加载 $codebase-investigation 定位入口和直接调用链。简单定位约 5 分钟仍无结论，向 Harness 提供已查位置和明确问题，不要无边界搜索。开发和返修只做生产代码、格式化及最小模块 compile，不运行行为测试、test-compile 或 Docker 验收。独立 QA 每个受影响模块用一次 test -pl <模块> -Dtest=<聚焦类列表> 执行本次用例和直接回归，不先单独编译；同一 worktree 复用 target，不 clean、不默认 -am。直接依赖 JAR 缺失/过期才先定向 install -pl <依赖模块> -DskipTests 一次。公开 API/依赖变化才对最小受影响消费者显式保守重编一次，普通实现改动不加全量验收。
+3. 需求 Worker 在 worker_done --payload 的真实 JSON 字段中返回 HTML reportPath 和 testCases 数组（每项 id/title/expected），禁止仅在 body 文字中列出字段。reportPath 指向已生成的具体 .html 文件，不传目录；协调者回读当前 Task/Dispatch 的持久结果，并确认页面可访问、编号用例齐全后才开放需求确认。评审页包含编号业务场景、操作和预期；这些是业务验收清单，不代表 QA 必须逐条做端到端测试。Harness 同源展示，禁止 file://。唯一需求确认门是 Harness“确认需求并继续”，不另弹确认框。收到后才派开发。用例只放评审页，不在 Harness 摘要重复铺开。
+4. 默认由 Grok grok-4.7 开发和返修、Codex gpt-6-luna 独立 QA；用户为本 Run 明确指定模型或 Agent 时优先按其要求执行，保持独立交叉验证。先复用本 Run、精确 worktree、角色匹配且空闲的终端；缺少时由 coordinator 自动启动，不要求用户提供终端。Grok 用 agent launch --agent grok --surface terminal --worktree path:<worktree> 启动，不传 --model 或 --effort；核对模型，不符时通过 /model grok-4.7 切换，再设置 /context-window 500k，回读确认后用 worker-start --terminal 纳入 Run。Codex 用 worker-start --agent codex --model gpt-6-luna --effort <该阶段已选强度> 启动。用户明确指定 Command Code 开发时才用 terminal create --command "cmd --dangerously-skip-permissions" 在精确 worktree 启动，并用 worker-start --terminal 纳入 Run，核对 Command Code 身份和实际模型，不用 zcode 冒充。按实际能力设置和记录推理强度，无法核验时记录未知；启动、身份识别或派发失败时通过 Harness 同步阻断，不得静默切换 Agent。普通 CLI 升级提示选择 Skip，不重复开 Agent；启动回执 prompt 为 not-delivered 时先回读确认任务尚未开始，再向同一终端发送一次任务并确认 turn_started，worker-start 的失败或不确定回执按 Orca 恢复指令处理。用户要求复用窗口时，阶段结算后用 worker-retain 保留，后续用新 Dispatch 复用；不要 release 后再新开。
+5. 每个开发 Task 附已确认范围卡；QA 可读取业务验收清单以逐项判断与 diff 的关系，但 QA 可执行清单只包含映射到本轮 diff 的本地行为。先加载 $codebase-investigation 定位入口和直接调用链。简单定位约 5 分钟仍无结论，向 Harness 提供已查位置和明确问题，不要无边界搜索。开发和返修只做生产代码、格式化及最小模块 compile，不运行行为测试、test-compile 或 Docker 验收。QA 开始前先核对最终 diff，把业务验收用例映射到实际修改的方法、分支、字段转换或数据填充，只测映射到本轮改动的行为及直接回归；不得因用例写了“上传”就启动上传/图片识别链路，也不得扩测整个 Service 或无关协作者。外部中间件相关项不得抄入 QA 测试清单、testCases 或结果；本地范围外编号回传 status=not_applicable，并用 evidence 简述未映射到本轮修改的范围依据，Harness 展示为“本轮不适用”且不阻塞 Review。至少一个范围内用例必须真实通过，不能把全部用例标为不适用。数据填充只用符合字段语义的夹具：URL 字段用带 scheme/host 的合法 URL，图片字段用图片 DTO/既有最小图片夹具；不得用普通单词冒充 URL/图片。未改图片处理行为时不真实上传或处理图片；只有本轮改动本身涉及图片处理才执行相应图片用例。构造器必需或当前分支实际调用的依赖才做最小 Mock，不为测试重构业务代码。每个受影响模块把用例合并为一条 test -pl <模块> -Dtest=<聚焦类列表> 命令，不先单独编译。首次新增测试的编译/夹具错误修正后，可在原授权、原范围和预算内重跑一次，无需另建 Gate；用户已停止/跳过时不得重跑。同一 worktree 复用 target，不 clean、不默认 -am。直接依赖 JAR 缺失/过期才先定向 install -pl <依赖模块> -DskipTests 一次。公开 API/依赖变化才对最小受影响消费者显式保守重编一次，普通实现改动不加全量验收。
 6. 源码根目录：${projectRoot || '以当前仓库为准'}。所有 Maven 命令必须用 ~/.agents/skills/dev-lifecycle/scripts/mvn-verified.sh。固定值原样传给 Worker：Maven=/path/to/apache-maven-xxx/bin/mvn；settings=/path/to/apache-maven-xxx/conf/settings.xml；repo=/path/to/maven-work；profile=nexus-private；JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-11.jdk/Contents/Home。脚本校验 Maven 3.8.6/JDK 11.0.22，默认离线及 maven.compiler.useIncrementalCompilation=false；拒绝覆盖配置、clean、无 -pl 构建、无 -Dtest 的测试和带 -am/-amd 的测试。禁止回退 PATH Maven 或 ~/.m2，不重复发现工具链。插件缺 version 的 POM WARNING 单独归为项目告警，不据此换工具链。
-7. RocketMQ、Dify、Redis、ES 等外部依赖按用户约定默认正常，不做真实连通/投递/模型准确率验证，不以未联调阻塞本地验收或 Review。QA 直接调用本次 Java Controller/Service，在边界构造消息/响应，不要求启动完整 HTTP 微服务链路；证据注明依赖假设及合成/用户样例来源，不声称实际联调通过。需要不可替代的返回契约时用当前 Run 的 Orca ask 在 Harness 请求用户粘贴最小脱敏 Dify 返回 JSON/字段。涉及落库仍在 project-mysql:3306/test_db 调真实 Service/Mapper 比对前后值；仅首次 QA 按实体主键、MyBatis ID 策略、Mapper 必读列和消息类型初始化所需夹具，复测复用。只新增唯一数据留存，不删表清表，不运行 ProjectDockerVerificationTest。凭据不输出。
-8. QA 按原编号回传 testCases（id/status/evidence），不把 mock 数量替代本地业务用例通过；未跑即 not_run。每次明确返修决定只授权一轮返修与一次定向复测，再次失败回 Harness 展示原因、累计时间和选项，不自动循环；夹具/Schema 错误只修复后重跑一次，仍失败归为测试阻断，不派开发改业务代码。纯测试命令默认限 120 秒、首次含编译限 180 秒；无进度 60 秒或超预算回 Harness，不自行延长。分别记录编译、夹具准备、测试和等待时间。Harness 展示用例结果，不铺完整 Maven 日志。用户停止/跳过测试并要求下一步时，持久记录未验证、停止对应执行并直接进入授权的 Review；原始“完整测试”指令不得让它重新启动。
+7. RocketMQ、Dify、Redis、ES、HTTP 等外部系统默认按用户约定正常，完全排除在本阶段测试范围、testCases、QA 结果和阻断说明之外；不连接、投递、验收模型效果，不输出“未联通/未验证/缺少返回值”，也不通过 Harness ask 索要外部返回。为隔离本地入口确有必要时，可在测试实现内部使用固定夹具或最小 stub，但不得把外部系统作为测试目标或写入用例证据。QA 只验证本轮改动的本地 Java 行为；涉及落库仍在 project-mysql:3306/test_db 调真实 Service/Mapper，只比对本次读写及相关共享表的前后值；多个系统共用数据库也不要求启动其他系统。仅首次 QA 按实体主键、MyBatis ID 策略和 Mapper 必读列初始化所需夹具，复测复用。只新增唯一数据留存，不删表清表，不运行 ProjectDockerVerificationTest。凭据不输出。
+8. 开发与 QA 的 worker_done payload 必须含 dependencyNotes 数组，披露本次改动直接复用或行为依赖的未修改本地业务方法和 Mapper；每项 caller/callee/purpose/verification/impact 分别写本次调用位置、既有方法、用途及契约变化、实际覆盖与影响。外部中间件的连通性和返回状态不得写成 QA 结果、阻断或未验证事项。没有本地业务依赖时明确返回空数组。QA 的 testCases 只回传最终 diff 映射到的本地行为用例；范围内本地但与本轮 diff 无关的需求用例可按原编号回传 not_applicable 并给出 diff 依据。只因验收依赖外部中间件的用例，不得进入 testCases；仅将其编号放入 excludedTestCaseIds，不写标题、预期、外部系统名、结果或说明。excludedTestCaseIds 用于确认需求清单已逐项归类，不在 Harness 展示。所有需求用例必须由 testCases 或 excludedTestCaseIds 覆盖，至少一项 testCases 带证据 passed；其余 testCases 只能是 passed 或有证据的 not_applicable。partial 仅用于范围内本地行为证据不完整。QA 结果及依赖说明只采用当前 Task/Dispatch 和最新实现轮次，旧 Dispatch 迟到回传或上一版实现的 QA 只作历史。用户明确授权新一轮返修/重新验证时清除旧的有效跳过标记并更新阶段，没有新授权不得重启 QA。每次明确返修决定只授权一轮返修与一次定向复测，再次失败回 Harness 展示原因、累计时间和选项，不自动循环；夹具/Schema 错误只修复后重跑一次，仍失败归为测试阻断，不派开发改业务代码。调用真实保存入口前，先核对本次路径的必需协作者及 Mockito 参数、重载和可变参数；结算等无关协作者仅使用最小测试替身正常返回，不增加其业务测试，目标数据库读写仍调用真实 Service/Mapper 并核对前后值。替身空指针或参数不匹配是夹具阻断，不能当成业务 Bug；改后值断言未执行须记未验证。同一代码轮次已有固定工具链的完整编译成功证据时核对并复用，不另派复核 Worker 或重复编译；证据缺失、工具链不符或源码变化才补做。纯测试命令默认限 120 秒、首次含编译限 180 秒；无进度 60 秒或超预算回 Harness，不自行延长。分别记录编译、夹具准备、测试和等待时间；无法分离模型和节点耗时则标记未知。Harness 展示用例结果，不铺完整 Maven 日志。用户停止/跳过测试并要求下一步时，持久记录未验证、停止对应执行并直接进入授权的 Review；原始“完整测试”指令不得让它重新启动。
 9. 派发后通过不超过 60 秒的 check --wait 处理消息、核验 worker_done 和身份，记录 outcome 后 ack；有活动 Worker 或已授权后续步骤时持续接续，等明确用户决策时才结束 turn。问题或失败必须在 Harness 给出原因、下一动作和可执行选项。
-10. 用户在 Harness 提交 Review 或明确要求跳过测试直接 Review 后，按仓库规则提交/推送/创建 MR，再派独立远程评审，必须加载 $gitlab-mr-review，读历史 notes 和完整远程 diff，回写 MR note。worker_done payload 携带 reviewResult、blocking、severity、noteUrl、mr.draft 和简短结论。评审执行完成、QA 结果、MR Draft/批准/合并分别记录；评审完成即可显示“评审完成”，不因 Draft 继续显示“评审中”。高风险按范围门处理，非阻断观察交 Harness 决定。MR 描述只写最终改动和必要验收，不写对话历史、本地 MQ 环境解释或已撤销方案。不得自动批准/合并/部署；未经用户确认评审通过不更新 PingCode 状态，不改负责人。
+10. 用户在 Harness 提交 Review 或明确要求跳过测试直接 Review 后，按仓库规则提交/推送/创建 MR，再派独立远程评审，必须加载 $gitlab-mr-review，读历史 notes、通读完整远程 diff 和相关调用路径，并一次性列出所有有证据的发现及已核对范围后回写 MR note；不得逐条提前打回。worker_done payload 携带 findings（每项含 id/severity/location/evidence/impact/recommendation）、reviewResult、blocking、severity、noteUrl、mr.draft 和简短结论。评审执行完成、QA 结果、MR Draft/批准/合并分别记录；评审完成即可显示“评审完成”，不因 Draft 继续显示“评审中”。若有 blocking/high 风险，将完整报告中所有需修复项按 ID 合并成一个返修 Task；实现 Worker 一次处理整批并逐项回报。在整批修复并完成必要验证、或用户明确接受剩余风险前，不更新分支、不推送、不重新提交评审。整批完成后一次推送并进行一次独立完整复审；新发现也必须合并成一批处理，禁止逐个问题反复派返修、推送和打回。范围外观察交 Harness 决定。MR 描述只写最终改动和必要验收，不写对话历史、本地 MQ 环境解释或已撤销方案。不得自动批准/合并/部署；未经用户确认评审通过不更新 PingCode 状态，不改负责人。
 ${developerInstructions ? `用户本次明确指令（优先）：\n${developerInstructions}` : ''}`
 }
 
@@ -479,7 +664,7 @@ export function apply(ctx) {
         if (!refs.refs?.includes('origin/master')) throw new Error('该 Orca 仓库没有可用的 origin/master，未创建分支或 worktree。')
         const branch = `codex/${bugId.toLowerCase()}-${Date.now()}-${randomUUID().slice(0, 8)}`
         const prompt = lifecyclePrompt(bugId, workItem.title, workItem.typeName, workItem, developerInstructions, repo.path)
-        const result = await orcaJson(['worktree', 'create', '--repo', `id:${repo.id}`, '--name', branch, '--base-branch', 'origin/master', '--no-parent', '--comment', `PingCode ${bugId}`, '--agent', 'codex', '--model', 'gpt-6-luna', '--effort', 'high', '--prompt', prompt])
+        const result = await orcaJson(['worktree', 'create', '--repo', `id:${repo.id}`, '--name', branch, '--base-branch', 'origin/master', '--no-parent', '--comment', `PingCode ${bugId}`, '--agent', 'codex', '--model', 'gpt-6-luna', '--effort', 'medium', '--prompt', prompt])
         sendJson(response, 201, { ok: true, bugId, repo: { id: repo.id, path: repo.path, displayName: repo.displayName }, branch, worktree: result.worktree, launch: result.launch, coordinatorTerminal: agentTerminalFromLaunch(result.launch, result), operationId: result.operationId })
       }),
         register(routes.progress, 'POST', 'Auto Dev Flow: sync Orca progress', async (request, response) => {
@@ -499,7 +684,8 @@ export function apply(ctx) {
         const existing = await orcaJson(['worktree', 'show', '--worktree', `path:${worktreePath}`])
         const skipMarker = /独立验证：用户跳过，未验证/.test(String(existing.worktree?.comment || ''))
         if (skipMarker && stage === 'tests') throw new Error('本 Run 已记录用户跳过测试，不能将阶段退回测试。')
-        const comment = `PingCode ${bugId} · 当前阶段：${stageLabels[stage]}${skipMarker ? ' · 独立验证：用户跳过，未验证' : ''}`
+        const scope = String(existing.worktree?.comment || '').match(/QA跳过范围：[\w-]+\/[\w-]+/)?.[0]
+        const comment = `PingCode ${bugId} · 当前阶段：${stageLabels[stage]}${skipMarker ? ` · 独立验证：用户跳过，未验证${scope ? ` · ${scope}` : ''}` : ''}`
         const result = await orcaJson([
           'worktree', 'set', '--worktree', `path:${worktreePath}`,
           '--comment', comment,
@@ -512,8 +698,9 @@ export function apply(ctx) {
         const repoId = String(query.get('repoId') || '')
         const worktree = String(query.get('worktree') || '')
         if (!repoId || !worktree.startsWith('/')) throw new Error('缺少有效的 Orca 仓库或 worktree。')
-        const repo = await getGitRepo(repoId)
-        const worktreeState = await orcaJson(['worktree', 'show', '--worktree', `path:${worktree}`])
+        const [repo, worktreeState] = await Promise.all([
+          getGitRepo(repoId), orcaJson(['worktree', 'show', '--worktree', `path:${worktree}`])
+        ])
         const skipPersisted = /独立验证：用户跳过，未验证/.test(String(worktreeState.worktree?.comment || ''))
         const state = await flowRuntime({
           bugId: bugIdFrom(query.get('bugId')),
@@ -521,22 +708,18 @@ export function apply(ctx) {
           worktree,
           runId: String(query.get('runId') || ''),
           coordinatorTerminal: String(query.get('coordinatorTerminal') || ''),
-          qaSkipPersisted: skipPersisted
+          qaSkipPersisted: skipPersisted,
+          worktreeState
         })
         const stageFromComment = {
           '需求接收': 'intake', '需求确认': 'requirements', '复现': 'reproduction',
           '跳过复现': 'reproSkipped', '开发实现': 'implementation', '测试': 'tests',
-          '提交 MR': 'mrPreparation', 'MR 评审': 'mrReview', '评审完成': 'mrReviewed', '验收': 'acceptance', '归档': 'archive'
+          '待提交 Review': 'mrPreparation', '提交 MR': 'mrPreparation', 'MR 评审': 'mrReview', '评审完成': 'mrReviewed', '验收': 'acceptance', '归档': 'archive'
         }[String(worktreeState.worktree?.comment || '').match(/当前阶段：([^·\n]+)/)?.[1]?.trim()]
         const order = ['intake', 'requirements', 'reproduction', 'reproSkipped', 'implementation', 'tests', 'mrPreparation', 'mrReview', 'mrReviewed', 'acceptance', 'archive']
-        if (stageFromComment && !state.activeWorkers?.length
+        if (stageFromComment && (!skipPersisted || state.qaSkipped) && !state.activeWorkers?.length
           && (!state.currentTaskId || ['acceptance', 'archive'].includes(stageFromComment)
             || (!state.mrReview && order.indexOf(stageFromComment) > order.indexOf(state.stage)))) state.stage = stageFromComment
-        if (skipPersisted) {
-          state.qaSkipped = true
-          if (state.qa) { state.qa.skipped = true; state.qa.unverified = true }
-          if (!state.activeWorkers?.some(worker => worker.dispatchId === state.qa?.dispatchId)) state.stage = 'mrPreparation'
-        }
         if (state.stage === 'archive' && !state.questions.length) state.flowStatus = 'completed'
         const mrNumber = Number(worktreeState.worktree?.linkedGitLabMR)
         if (Number.isInteger(mrNumber) && mrNumber > 0) {
@@ -547,7 +730,10 @@ export function apply(ctx) {
             ? `远程评审已完成${state.mrReview.draft ? ' · MR 保持 Draft' : ''}${state.mrReview.finding ? ` · ${state.mrReview.finding}` : ''}`
             : state.mrReview?.completed ? '上一轮评审已完成，当前有新的改动待处理，后续需重新评审。' : '远程 MR 评审进行中'
         }
-        state.reviewSubmitted = Boolean(mrNumber) || Boolean(state.mrReview) || ['mrPreparation', 'mrReview', 'mrReviewed'].includes(stageFromComment)
+        state.reviewSubmitted = Boolean(mrNumber) || Boolean(state.mrReview)
+          || /Review指令：已发送/.test(String(worktreeState.worktree?.comment || ''))
+          || ['mrReview', 'mrReviewed'].includes(stageFromComment)
+          || (stageFromComment === 'mrPreparation' && !state.qaSkipped && /当前阶段：提交 MR/.test(String(worktreeState.worktree?.comment || '')))
         sendJson(response, 200, { ok: true, state })
       }),
         register(routes.report, 'GET', 'Auto Dev Flow: requirements review page', async (request, response) => {
@@ -563,18 +749,7 @@ export function apply(ctx) {
         if (!state.review?.reportPath) throw new Error('需求评审页尚未生成。')
         const terminals = await orcaJson(['terminal', 'list', '--worktree', `path:${worktree}`])
         if (!(terminals.terminals || []).some(item => item.handle === state.coordinatorTerminal)) throw new Error('Orca Run 与 worktree 不匹配。')
-        const root = await realpath(worktree)
-        const reportPath = state.review.reportPath.startsWith('file://')
-          ? fileURLToPath(state.review.reportPath) : state.review.reportPath
-        const file = await realpath(resolve(root, reportPath))
-        const inside = relative(root, file)
-        const pages = resolve(os.homedir(), '.answer-me-with-html/pages')
-        const pageName = relative(pages, file)
-        const inWorktree = inside && !inside.startsWith('..') && !isAbsolute(inside)
-        const skillPage = pageName && !pageName.startsWith('..') && !isAbsolute(pageName)
-          && !pageName.includes('/') && pageName.startsWith(`${bugIdFrom(query.get('bugId'))}-`)
-        if ((!inWorktree && !skillPage) || !/\.html?$/i.test(file)) throw new Error('需求评审页路径无效。')
-        const html = await readFile(file)
+        const { html } = await loadRequirementsReport(worktree, bugIdFrom(query.get('bugId')), state.review.reportPath)
         response.writeHead(200, {
           'content-type': 'text/html; charset=utf-8',
           'cache-control': 'no-store',
@@ -602,13 +777,15 @@ export function apply(ctx) {
         } else {
           await orcaJson(['orchestration', 'reply', '--id', messageId, '--body', answer, '--run', state.runId, '--from', state.coordinatorTerminal])
         }
+        const skipped = isQaStopDecision(question.question, answer)
+        if (skipped) await persistQaSkip({ bugId: bugIdFrom(body.bugId), worktree, state, reason: answer })
         let coordinatorNotified = false
         try {
           const terminal = await orcaJson(['terminal', 'read', '--terminal', state.coordinatorTerminal])
           if (terminal.terminal?.status === 'running') {
             const result = await orcaJson([
               'terminal', 'send', '--terminal', state.coordinatorTerminal,
-              '--text', `Harness 已${question.kind === 'gate' ? '解决决策 Gate' : '答复 Orca ask'} ${messageId}：“${answer}”。决定已持久保存。请按该决定接续当前 Run，完成决策 Task 并同步状态；不要重启已跳过或已中断的阶段。`,
+              '--text', `Harness 已${question.kind === 'gate' ? '解决决策 Gate' : '答复 Orca ask'} ${messageId}：“${answer}”。决定已持久保存。请按该决定接续当前 Run，完成决策 Task 并同步状态；不要重启已跳过或已中断的阶段。${skipped ? '用户跳过 QA 已持久记录为未验证，已开放 Review；等待用户点击提交 Review，不再测试。' : ''}`,
               '--enter', '--wait-submit', '10'
             ])
             coordinatorNotified = Boolean(result.send?.accepted)
@@ -623,6 +800,9 @@ export function apply(ctx) {
         if (!worktree.startsWith('/')) throw new Error('缺少有效的 Orca worktree。')
         const state = await flowRuntime({ bugId: bugIdFrom(body.bugId), repoId: repo.id, worktree, runId: body.runId, coordinatorTerminal: body.coordinatorTerminal })
         if (!state.runId || !state.review || state.questions.length) throw new Error('需求结论尚未完成或仍有待答问题，暂不能确认。')
+        if (state.review.reportError || !state.review.reportPath || !state.review.testCases.length) {
+          throw new Error(state.review.reportError || '需求评审页或编号测试用例未就绪，暂不能确认。')
+        }
         const retryRequestId = String(body.retryRequestId || '')
         if (retryRequestId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(retryRequestId)) throw new Error('Orca 重试请求编号无效。')
         const terminal = await orcaJson(['terminal', 'read', '--terminal', state.coordinatorTerminal])
@@ -646,18 +826,21 @@ export function apply(ctx) {
         const terminals = await orcaJson(['terminal', 'list', '--worktree', worktreeId])
         if (!(terminals.terminals || []).some(item => item.handle === state.coordinatorTerminal)) throw new Error('Orca Run 与 worktree 不匹配。')
         const current = await orcaJson(['worktree', 'show', '--worktree', worktreeId])
-        if (/当前阶段：(提交 MR|MR 评审)/.test(String(current.worktree?.comment || ''))) {
+        const comment = String(current.worktree?.comment || '')
+        if (/Review指令：已发送|当前阶段：MR 评审/.test(comment)
+          || (!state.qaSkipped && /当前阶段：提交 MR/.test(comment))) {
           sendJson(response, 200, { ok: true, runId: state.runId, alreadySubmitted: true })
           return
         }
         const terminal = await orcaJson(['terminal', 'read', '--terminal', state.coordinatorTerminal])
         if (terminal.terminal?.status !== 'running') throw new Error('Orca coordinator Terminal 当前未运行，未发送 Review 指令。')
-        const instruction = `Harness 用户已点击 ${bugId} 的“提交 Review”。请在当前 Run 中先核对改动范围和现有验收，发现阻断问题则修复并定向复核；然后按仓库 GitLab 流程提交、推送分支并创建 MR。MR 创建后将 worktree 阶段更新为“MR 评审”并关联 MR，再启动基于远程 MR 的独立评审 Worker，明确要求使用 $gitlab-mr-review Skill；该 Skill 要求先读历史 notes 并核对当前 diff、通读完整远程 diff、分级列出发现和已验证无问题项，并将完整评审回写为 MR note。若 Skill 不可用或 note 写回失败，须如实报告阻碍，不能以其他 Review Skill 或本地审查冒充正式 MR 评审。若发现直接导致验收失败、数据丢失/污染或安全问题的高风险项，立即派回实现 Worker 返修并定向复核；流程演练或跳过复现/测试不能豁免。未解决前保持 Draft/不得合并且评审不得标为通过；除非用户明确要求，不得批准 MR。评审完成后仅更新 PingCode 状态，不转派负责人，不部署。`
+        const instruction = `Harness 用户已点击 ${bugId} 的“提交 Review”。请在当前 Run 中先核对改动范围和现有验收，发现阻断问题则先修复并定向复核，再按仓库 GitLab 流程提交、推送分支并创建 MR。MR 创建后将 worktree 阶段更新为“MR 评审”并关联 MR，再启动基于远程 MR 的独立评审 Worker，明确要求使用 $gitlab-mr-review Skill；该 Skill 要求读历史 notes、通读完整远程 diff 和相关调用路径，将全部有证据的发现及已核对范围一次性列全并回写同一条最终 MR note，禁止逐条提前回报。若 Skill 不可用或 note 写回失败，须如实报告阻碍，不能以其他 Review Skill 或本地审查冒充正式 MR 评审。发现直接导致验收失败、数据丢失/污染或安全问题的高风险项时，把当前报告所有需修复项合并成一个返修 Task，按发现 ID 逐项处理并完成必要验证；整批解决或用户明确接受剩余风险前，不更新分支、不推送、不重新提交评审。之后一次推送并做一次完整独立复审；新发现先合并成一批，不得按单项反复打回和推送。流程演练或跳过复现/测试不能豁免高风险修复。未解决前保持 Draft/不得合并且评审不得标为通过；除非用户明确要求，不得批准 MR。评审完成后仅更新 PingCode 状态，不转派负责人，不部署。`
         const result = await orcaJson(['terminal', 'send', '--terminal', state.coordinatorTerminal, '--text', instruction, '--enter', '--wait-submit', '10'])
         if (!result.send?.accepted) throw new Error('Orca coordinator Terminal 未确认接收 Review 指令。')
         let stageSynced = true
         try {
-          await orcaJson(['worktree', 'set', '--worktree', worktreeId, '--comment', `PingCode ${bugId} · 当前阶段：提交 MR`, '--workspace-status', 'in-review'])
+          await orcaJson(['worktree', 'set', '--worktree', worktreeId, '--comment',
+            `PingCode ${bugId} · 当前阶段：提交 MR · Review指令：已发送${state.qaSkipped ? ` · 独立验证：用户跳过，未验证 · QA跳过范围：${state.runId}/${state.implementationTaskId || '-'}` : ''}`, '--workspace-status', 'in-review'])
         } catch { stageSynced = false }
         sendJson(response, 200, { ok: true, runId: state.runId, stageSynced, message: result.send })
       }),
